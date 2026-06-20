@@ -1,5 +1,5 @@
 import pygame
-from board import Board
+from .board import Board
 
 class Renderer:
     SCREEN_WIDTH = 720

@@ -1,5 +1,5 @@
-from renderer import Renderer
-from board import Board
+from .renderer import Renderer
+from .board import Board
 
 class Game:
     def __init__(self) -> None:
