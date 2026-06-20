@@ -2,6 +2,7 @@ import pygame
 from .dragstate import DragState
 from .board import Board
 from typing import Optional
+from pieces import Pawn
 
 class Renderer:
     SCREEN_WIDTH: int = 720
@@ -64,7 +65,13 @@ class Renderer:
         target_row, target_col = self._pixel_to_cell(x, y)
         target = self.board[target_row][target_col]
 
-        if (target_row, target_col) in self._drag.piece.get_moves(origin_row, origin_col, self.board):
+        valid_move = any(
+            (target_row, target_col) == move.to_sq
+            for move in self._drag.piece.get_moves(origin_row, origin_col, self.board)
+        )
+            
+        if valid_move:
+            self._drag.piece.has_moved = True
             self.board[target_row][target_col] = self._drag.piece
             sound = self.capture_sound if target else self.move_sound
             sound.play()
@@ -77,6 +84,7 @@ class Renderer:
         self.screen.fill((0, 0, 0))
         self._draw_board()
         self._draw_pieces()
+        self._draw_drag()
 
     def _draw_board(self) -> None:
         for row in range(8):
@@ -94,6 +102,7 @@ class Renderer:
                     y_pos = row * Renderer.SQUARE_SIZE
                     self.screen.blit(piece.image, (x_pos, y_pos))
 
+    def _draw_drag(self) -> None:
         if self._drag:
             self.screen.blit(
                 self._drag.piece.image, 

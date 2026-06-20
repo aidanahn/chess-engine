@@ -1,5 +1,6 @@
 from .piece import Piece, Color
 from typing import Optional
+from src.move import Move
 
 class Knight(Piece):
     DELTAS = [
@@ -10,18 +11,20 @@ class Knight(Piece):
     def __init__(self, color: Color) -> None:
         super().__init__(color, 'knight')
 
-    def get_moves(self, row: int, col: int, board: list[list[Optional['Piece']]]) -> list[tuple[int, int]]:
+    def get_moves(self, row: int, col: int, board: list[list[Optional['Piece']]]) -> list[Move]:
         moves = []
 
-        for delta_row, delta_col in Knight.DELTAS:
-            target_row, target_col = row + delta_row, col + delta_col
+        for dr, dc in Knight.DELTAS:
+            tr, tc = row + dr, col + dc
 
-            if not self._is_in_bounds(target_row, target_col):
+            if not self._is_in_bounds(tr, tc):
                 continue
 
-            target = board[target_row][target_col]
+            target = board[tr][tc]
 
-            if target is None or target.color != self.color:
-                moves.append((target_row, target_col))
+            if target is None:
+                moves.append(Move((row, col), (tr, tc)))
+            elif target.color != self.color:
+                moves.append(Move((row, col), (tr, tc), captured=target))
 
         return moves

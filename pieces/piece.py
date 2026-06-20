@@ -8,6 +8,7 @@ PieceType = Literal['pawn', 'bishop', 'rook', 'queen', 'king', 'knight']
 class Piece(ABC):
     def __init__(self, color: Color, piece_type: PieceType) -> None:
         self.color = color
+        self.has_moved = False
         self.image = pygame.transform.smoothscale(
             pygame.image.load(f'assets/pieces/{color}_{piece_type}.png'), 
             (720 // 8, 720 // 8)
