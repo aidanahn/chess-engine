@@ -56,8 +56,14 @@ class Renderer:
 
     def _on_mouse_up(self, x: int, y: int) -> None:
         row, col = self._pixel_to_cell(x, y)
-        self.board[row][col] = self._drag.piece
-        self._drag = None
+        piece = self.board[row][col]
+        if piece and piece.color == self._drag.piece.color:
+            row, col = self._pixel_to_cell(self._drag.prev_x, self._drag.prev_y)
+            self.board[row][col] = self._drag.piece
+            self._drag = None
+        else:
+            self.board[row][col] = self._drag.piece
+            self._drag = None
 
     def _render(self) -> None:
         self.screen.fill((0, 0, 0))
