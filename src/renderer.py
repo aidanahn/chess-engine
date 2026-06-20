@@ -73,12 +73,13 @@ class Renderer:
         if matched_move:
             self.board.board[origin_row][origin_col] = self._drag.piece
             self.board.make_move(matched_move)
-            if not self.board._is_in_check(self._drag.piece.color):
+
+            if self.board._is_in_check(self._drag.piece.color):
+                self.board.unmake_move(matched_move)
+            else:
                 self._drag.piece.has_moved = True
                 sound = self.capture_sound if target else self.move_sound
                 sound.play()
-            else:
-                self.board.unmake_move(matched_move)
         else:
             self.board.board[origin_row][origin_col] = self._drag.piece
 
