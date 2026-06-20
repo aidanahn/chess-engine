@@ -1,6 +1,6 @@
 from .piece import Piece
-from typing import Literal
+import pygame
 
 class Pawn(Piece):
-    def __init__(self, color: Literal['white', 'black']) -> None:
-        super().__init__(color)
+    def __init__(self, color):
+        super().__init__(color, 'pawn')
