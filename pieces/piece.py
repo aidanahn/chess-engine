@@ -1,7 +1,13 @@
 import pygame
+from typing import Literal
+
+Color = Literal['white', 'black']
+PieceType = Literal['pawn', 'bishop', 'rook', 'queen', 'king', 'knight']
 
 class Piece:
-    def __init__(self, color, piece_type):
+    def __init__(self, color: Color, piece_type: PieceType) -> None:
         self.color = color
-        self.image = pygame.image.load(f'assets/{color}_{piece_type}.png')
-        self.image = pygame.transform.smoothscale(self.image, (720 // 8, 720 // 8))
+        self.image = pygame.transform.smoothscale(
+            pygame.image.load(f'assets/{color}_{piece_type}.png'), 
+            (720 // 8, 720 // 8)
+        )
