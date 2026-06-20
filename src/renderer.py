@@ -17,10 +17,14 @@ class Renderer:
         self._drag: Optional[DragState] = None
 
         pygame.init()
+        pygame.mixer.init()
         pygame.display.set_caption("Chess")
         self.screen = pygame.display.set_mode((Renderer.SCREEN_WIDTH, Renderer.SCREEN_HEIGHT))
         self.clock = pygame.time.Clock()
         self.running = True
+
+        self.move_sound = pygame.mixer.Sound('assets/sounds/move_self.mp3')
+        self.capture_sound = pygame.mixer.Sound('assets/sounds/capture.mp3')
 
     def run(self) -> None:
         while self.running:
@@ -50,20 +54,24 @@ class Renderer:
     def _on_mouse_down(self, x: int, y: int) -> None:
         row, col = self._pixel_to_cell(x, y)
         piece = self.board[row][col]
+
         if piece:
             self.board[row][col] = None
             self._drag = DragState(piece, x, y)
 
     def _on_mouse_up(self, x: int, y: int) -> None:
-        row, col = self._pixel_to_cell(x, y)
-        piece = self.board[row][col]
-        if piece and piece.color == self._drag.piece.color:
-            row, col = self._pixel_to_cell(self._drag.prev_x, self._drag.prev_y)
-            self.board[row][col] = self._drag.piece
-            self._drag = None
+        origin_row, origin_col = self._pixel_to_cell(self._drag.prev_x, self._drag.prev_y)
+        target_row, target_col = self._pixel_to_cell(x, y)
+        target = self.board[target_row][target_col]
+
+        if (target_row, target_col) in self._drag.piece.get_moves(origin_row, origin_col, self.board):
+            self.board[target_row][target_col] = self._drag.piece
+            sound = self.capture_sound if target else self.move_sound
+            sound.play()
         else:
-            self.board[row][col] = self._drag.piece
-            self._drag = None
+            self.board[origin_row][origin_col] = self._drag.piece
+
+        self._drag = None
 
     def _render(self) -> None:
         self.screen.fill((0, 0, 0))
