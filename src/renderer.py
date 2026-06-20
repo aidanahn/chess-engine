@@ -60,7 +60,7 @@ class Renderer:
             self._drag = DragState(piece, x, y)
 
     def _on_mouse_up(self, x: int, y: int) -> None:
-        origin_row, origin_col = self._pixel_to_cell(self._drag.prev_x, self._drag.prev_y)
+        origin_row, origin_col = self._pixel_to_cell(self._drag.origin_x, self._drag.origin_y)
         target_row, target_col = self._pixel_to_cell(x, y)
         target = self.board.board[target_row][target_col]
 

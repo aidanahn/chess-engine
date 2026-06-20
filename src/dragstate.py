@@ -5,5 +5,5 @@ class DragState:
         self.piece = piece
         self.mouse_x = mouse_x
         self.mouse_y = mouse_y
-        self.prev_x = mouse_x
-        self.prev_y = mouse_y
+        self.origin_x = mouse_x
+        self.origin_y = mouse_y
