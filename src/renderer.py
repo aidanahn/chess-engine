@@ -2,7 +2,6 @@ import pygame
 from .dragstate import DragState
 from .board import Board
 from typing import Optional
-from pieces import Pawn
 
 class Renderer:
     SCREEN_WIDTH: int = 720
@@ -14,7 +13,7 @@ class Renderer:
     LIGHT_SQUARE: tuple[int, int, int] = (235, 236, 208)
     
     def __init__(self, board: Board) -> None:
-        self.board = board.board
+        self.board = board
         self._drag: Optional[DragState] = None
 
         pygame.init()
@@ -54,29 +53,34 @@ class Renderer:
 
     def _on_mouse_down(self, x: int, y: int) -> None:
         row, col = self._pixel_to_cell(x, y)
-        piece = self.board[row][col]
+        piece = self.board.board[row][col]
 
         if piece:
-            self.board[row][col] = None
+            self.board.board[row][col] = None
             self._drag = DragState(piece, x, y)
 
     def _on_mouse_up(self, x: int, y: int) -> None:
         origin_row, origin_col = self._pixel_to_cell(self._drag.prev_x, self._drag.prev_y)
         target_row, target_col = self._pixel_to_cell(x, y)
-        target = self.board[target_row][target_col]
+        target = self.board.board[target_row][target_col]
 
-        valid_move = any(
-            (target_row, target_col) == move.to_sq
-            for move in self._drag.piece.get_moves(origin_row, origin_col, self.board)
-        )
-            
-        if valid_move:
-            self._drag.piece.has_moved = True
-            self.board[target_row][target_col] = self._drag.piece
-            sound = self.capture_sound if target else self.move_sound
-            sound.play()
+        matched_move = None
+        for move in self._drag.piece.get_moves(origin_row, origin_col, self.board.board):
+            if (target_row, target_col) == move.to_sq:
+                matched_move = move
+                break
+
+        if matched_move:
+            self.board.board[origin_row][origin_col] = self._drag.piece
+            self.board.make_move(matched_move)
+            if not self.board._is_in_check(self._drag.piece.color):
+                self._drag.piece.has_moved = True
+                sound = self.capture_sound if target else self.move_sound
+                sound.play()
+            else:
+                self.board.unmake_move(matched_move)
         else:
-            self.board[origin_row][origin_col] = self._drag.piece
+            self.board.board[origin_row][origin_col] = self._drag.piece
 
         self._drag = None
 
@@ -95,7 +99,7 @@ class Renderer:
                 pygame.draw.rect(self.screen, color, rect)
 
     def _draw_pieces(self) -> None:
-        for row, rank in enumerate(self.board):
+        for row, rank in enumerate(self.board.board):
             for col, piece in enumerate(rank):
                 if piece is not None:
                     x_pos = col * Renderer.SQUARE_SIZE
