@@ -1,8 +1,9 @@
-from pieces import Rook, Knight, Bishop, Pawn, King, Queen
+from pieces import Rook, Knight, Bishop, Pawn, King, Queen, Piece
+from typing import Optional
 
 class Board:
-    def __init__(self):
-        self.board = [[None] * 8 for _ in range(8)]
+    def __init__(self) -> None:
+        self.board: list[list[Optional[Piece]]] = [[None] * 8 for _ in range(8)]
         self.board[0] = [
             Rook('black'), Knight('black'), Bishop('black'), Queen('black'), 
             King('black'), Bishop('black'), Knight('black'), Rook('black')

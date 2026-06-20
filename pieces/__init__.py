@@ -4,3 +4,4 @@ from pieces.pawn import Pawn
 from pieces.knight import Knight
 from pieces.king import King
 from pieces.queen import Queen
+from pieces.piece import Piece

@@ -1,4 +1,5 @@
 import pygame
+from board import Board
 
 class Renderer:
     SCREEN_WIDTH = 720
@@ -6,9 +7,9 @@ class Renderer:
     FRAMES_PER_SECOND = 60
     DARK_SQUARE = (115, 149, 82)
     LIGHT_SQUARE = (235, 236, 208)
-    SQUARE_SIZE = SCREEN_WIDTH / 8
+    SQUARE_SIZE = SCREEN_WIDTH // 8
 
-    def __init__(self, board):
+    def __init__(self, board: Board) -> None:
         self.board = board
 
         pygame.init()
@@ -16,9 +17,8 @@ class Renderer:
         self.screen = pygame.display.set_mode((Renderer.SCREEN_WIDTH, Renderer.SCREEN_HEIGHT))
         self.clock = pygame.time.Clock()
         self.running = True
-        
 
-    def run(self):
+    def run(self) -> None:
         while self.running:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -33,10 +33,10 @@ class Renderer:
 
         pygame.quit()
 
-    def clear_board(self):
+    def clear_board(self) -> None:
         self.screen.fill((0, 0, 0))
 
-    def draw_board(self):
+    def draw_board(self) -> None:
         is_light = True
 
         for rank in range(8):
