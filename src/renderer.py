@@ -64,7 +64,7 @@ class Renderer:
         if not self.board.is_in_bounds(row, col):
             return
 
-        piece = self.board.board[row][col]
+        piece = self.board.piece_at((row, col))
 
         if piece and piece.color == self.current_turn:
             self._drag = DragState(piece, x, y)
@@ -77,13 +77,11 @@ class Renderer:
             self._drag = None
             return
 
-        target = self.board.board[target_row][target_col]
-
-        matched_move = None
-        for move in self.board.get_legal_moves(origin_row, origin_col):
-            if (target_row, target_col) == move.to_sq:
-                matched_move = move
-                break
+        target = self.board.piece_at((target_row, target_col))
+        matched_move = self.board.find_legal_move(
+            (origin_row, origin_col),
+            (target_row, target_col)
+        )
 
         if matched_move:
             self.board.make_move(matched_move)
@@ -118,17 +116,15 @@ class Renderer:
                 pygame.draw.rect(self.screen, color, rect)
 
     def _draw_pieces(self) -> None:
-        for row, rank in enumerate(self.board.board):
-            for col, piece in enumerate(rank):
-                if piece is not None:
-                    if self._drag:
-                        origin_row, origin_col = self._pixel_to_cell(self._drag.origin_x, self._drag.origin_y)
-                        if (row, col) == (origin_row, origin_col):
-                            continue
+        for (row, col), piece in self.board.pieces():
+            if self._drag:
+                origin_row, origin_col = self._pixel_to_cell(self._drag.origin_x, self._drag.origin_y)
+                if (row, col) == (origin_row, origin_col):
+                    continue
 
-                    x_pos = col * Renderer.SQUARE_SIZE
-                    y_pos = row * Renderer.SQUARE_SIZE
-                    self.screen.blit(piece.image, (x_pos, y_pos))
+            x_pos = col * Renderer.SQUARE_SIZE
+            y_pos = row * Renderer.SQUARE_SIZE
+            self.screen.blit(piece.image, (x_pos, y_pos))
 
     def _draw_drag(self) -> None:
         if self._drag:

@@ -1,7 +1,9 @@
 from pieces import Rook, Knight, Bishop, Pawn, King, Queen, Piece
 from pieces.piece import Color
-from typing import Optional
+from typing import Iterator, Optional
 from .move import Move
+
+Square = tuple[int, int]
 
 class Board:
     def __init__(self) -> None:
@@ -20,11 +22,36 @@ class Board:
     def is_in_bounds(self, row: int, col: int) -> bool:
         return 0 <= row < 8 and 0 <= col < 8
 
+    def piece_at(self, square: Square) -> Optional[Piece]:
+        row, col = square
+        if not self.is_in_bounds(row, col):
+            return None
+        return self.board[row][col]
+
+    def set_piece(self, square: Square, piece: Optional[Piece]) -> None:
+        row, col = square
+        if not self.is_in_bounds(row, col):
+            raise ValueError(f"Square out of bounds: {square}")
+        self.board[row][col] = piece
+
+    def pieces(self) -> Iterator[tuple[Square, Piece]]:
+        for row, rank in enumerate(self.board):
+            for col, piece in enumerate(rank):
+                if piece is not None:
+                    yield (row, col), piece
+
+    def find_legal_move(self, from_sq: Square, to_sq: Square) -> Optional[Move]:
+        from_row, from_col = from_sq
+        for move in self.get_legal_moves(from_row, from_col):
+            if move.to_sq == to_sq:
+                return move
+        return None
+
     def get_legal_moves(self, row: int, col: int) -> list[Move]:
         if not self.is_in_bounds(row, col):
             return []
 
-        piece = self.board[row][col]
+        piece = self.piece_at((row, col))
         if piece is None:
             return []
 
@@ -72,21 +99,21 @@ class Board:
         from_row, from_col = move.from_sq
         to_row, to_col = move.to_sq
 
-        piece = self.board[from_row][from_col]
-        self.board[to_row][to_col] = piece
-        self.board[from_row][from_col] = None
+        piece = self.piece_at(move.from_sq)
+        self.set_piece(move.to_sq, piece)
+        self.set_piece(move.from_sq, None)
 
         if move.is_castling:
             if to_col == 6:
-                rook = self.board[to_row][7]
-                self.board[to_row][5] = rook
-                self.board[to_row][7] = None
+                rook = self.piece_at((to_row, 7))
+                self.set_piece((to_row, 5), rook)
+                self.set_piece((to_row, 7), None)
             else:
-                rook = self.board[to_row][0]
-                self.board[to_row][3] = rook
-                self.board[to_row][0] = None
+                rook = self.piece_at((to_row, 0))
+                self.set_piece((to_row, 3), rook)
+                self.set_piece((to_row, 0), None)
 
-            if mark_moved:
+            if mark_moved and rook is not None:
                 rook.has_moved = True
 
         if mark_moved and piece is not None:
@@ -96,15 +123,15 @@ class Board:
         from_row, from_col = move.from_sq
         to_row, to_col = move.to_sq
 
-        self.board[from_row][from_col] = self.board[to_row][to_col]
-        self.board[to_row][to_col] = move.captured
+        self.set_piece(move.from_sq, self.piece_at(move.to_sq))
+        self.set_piece(move.to_sq, move.captured)
 
         if move.is_castling:
             if to_col == 6:
-                rook = self.board[to_row][5]
-                self.board[to_row][7] = rook
-                self.board[to_row][5] = None
+                rook = self.piece_at((to_row, 5))
+                self.set_piece((to_row, 7), rook)
+                self.set_piece((to_row, 5), None)
             else:
-                rook = self.board[to_row][3]
-                self.board[to_row][0] = rook
-                self.board[to_row][3] = None
+                rook = self.piece_at((to_row, 3))
+                self.set_piece((to_row, 0), rook)
+                self.set_piece((to_row, 3), None)
