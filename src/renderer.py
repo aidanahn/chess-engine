@@ -2,6 +2,7 @@ import pygame
 from .dragstate import DragState
 from .board import Board
 from typing import Optional
+from pieces.piece import Color
 
 class Renderer:
     SCREEN_WIDTH: int = 720
@@ -15,6 +16,7 @@ class Renderer:
     def __init__(self, board: Board) -> None:
         self.board = board
         self._drag: Optional[DragState] = None
+        self.current_turn: Color = 'white'
 
         pygame.init()
         pygame.mixer.init()
@@ -59,43 +61,45 @@ class Renderer:
 
     def _on_mouse_down(self, x: int, y: int) -> None:
         row, col = self._pixel_to_cell(x, y)
+        if not self.board.is_in_bounds(row, col):
+            return
+
         piece = self.board.board[row][col]
 
-        if piece:
-            self.board.board[row][col] = None
+        if piece and piece.color == self.current_turn:
             self._drag = DragState(piece, x, y)
 
     def _on_mouse_up(self, x: int, y: int) -> None:
         origin_row, origin_col = self._pixel_to_cell(self._drag.origin_x, self._drag.origin_y)
         target_row, target_col = self._pixel_to_cell(x, y)
+
+        if not self.board.is_in_bounds(target_row, target_col):
+            self._drag = None
+            return
+
         target = self.board.board[target_row][target_col]
 
         matched_move = None
-        for move in self._drag.piece.get_moves(origin_row, origin_col, self.board.board, self.board._is_square_attacked):
+        for move in self.board.get_legal_moves(origin_row, origin_col):
             if (target_row, target_col) == move.to_sq:
                 matched_move = move
                 break
 
         if matched_move:
-            self.board.board[origin_row][origin_col] = self._drag.piece
             self.board.make_move(matched_move)
 
-            if self.board._is_in_check(self._drag.piece.color):
-                self.board.unmake_move(matched_move)
+            opponent = 'white' if self._drag.piece.color == 'black' else 'black'
+            if self.board._is_in_check(opponent):
+                sound = self.check_sound
+            elif matched_move.is_castling:
+                sound = self.castle_sound
+            elif target:
+                sound = self.capture_sound
             else:
-                self._drag.piece.has_moved = True
-                opponent = 'white' if self._drag.piece.color == 'black' else 'black'
-                if self.board._is_in_check(opponent):
-                    sound = self.check_sound
-                elif matched_move.is_castling:
-                    sound = self.castle_sound
-                elif target:
-                    sound = self.capture_sound
-                else:
-                    sound = self.self_move_sound if self._drag.piece.color == 'white' else self.opponent_move_sound
-                sound.play()
-        else:
-            self.board.board[origin_row][origin_col] = self._drag.piece
+                sound = self.self_move_sound if self._drag.piece.color == 'white' else self.opponent_move_sound
+
+            sound.play()
+            self.current_turn = opponent
 
         self._drag = None
 
@@ -117,6 +121,11 @@ class Renderer:
         for row, rank in enumerate(self.board.board):
             for col, piece in enumerate(rank):
                 if piece is not None:
+                    if self._drag:
+                        origin_row, origin_col = self._pixel_to_cell(self._drag.origin_x, self._drag.origin_y)
+                        if (row, col) == (origin_row, origin_col):
+                            continue
+
                     x_pos = col * Renderer.SQUARE_SIZE
                     y_pos = row * Renderer.SQUARE_SIZE
                     self.screen.blit(piece.image, (x_pos, y_pos))
