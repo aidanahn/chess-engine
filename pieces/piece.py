@@ -15,8 +15,11 @@ class Piece(ABC):
         )
 
     @abstractmethod
-    def get_moves(self, row: int, col: int, board: list[list[Optional['Piece']]]) -> list[tuple[int, int]]:
+    def get_moves(self, row: int, col: int, board: list[list[Optional['Piece']]], is_attacked=None):
         pass
+
+    def get_attacks(self, row: int, col: int, board: list[list[Optional['Piece']]]):
+        return self.get_moves(row, col, board)
 
     def _is_in_bounds(self, row: int, col: int) -> bool:
         return 0 <= col < 8 and 0 <= row < 8

@@ -9,7 +9,7 @@ class King(Piece):
     def __init__(self, color: Color) -> None:
         super().__init__(color, 'king')
 
-    def get_moves(self, row: int, col: int, board: list[list[Optional['Piece']]]) -> list[Move]:
+    def get_moves(self, row: int, col: int, board: list[list[Optional['Piece']]], is_attacked=None) -> list[Move]:
         moves = []
 
         for dr, dc in King.DELTAS:
@@ -25,20 +25,30 @@ class King(Piece):
             elif target.color != self.color:
                 moves.append(Move((row, col), (tr, tc), captured=target))
 
-        return moves + self._get_castle_moves(row, col, board)
-    
-    def _get_castle_moves(self, row: int, col:int, board: list[list[Optional['Piece']]]) -> list[Move]:
-        moves = []
+        if is_attacked:
+            moves += self._get_castle_moves(row, col, board, is_attacked)
 
-        if self.has_moved:
+        return moves
+    
+    def _get_castle_moves(self, row: int, col: int, board: list[list[Optional['Piece']]], is_attacked) -> list[Move]:
+        moves = []
+        opponent = 'black' if self.color == 'white' else 'white'
+
+        if self.has_moved or is_attacked(row, col, opponent):
             return moves
-        
+
         kingside_rook = board[row][7]
-        if isinstance(kingside_rook, Rook) and not kingside_rook.has_moved and board[row][5] is None and board[row][6] is None:
+        if (isinstance(kingside_rook, Rook) and not kingside_rook.has_moved
+                and board[row][5] is None and board[row][6] is None
+                and not is_attacked(row, 5, opponent)
+                and not is_attacked(row, 6, opponent)):
             moves.append(Move((row, col), (row, 6), is_castling=True))
 
         queenside_rook = board[row][0]
-        if isinstance(queenside_rook, Rook) and not queenside_rook.has_moved and board[row][1] is None and board[row][2] is None and board[row][3] is None:
+        if (isinstance(queenside_rook, Rook) and not queenside_rook.has_moved
+                and board[row][1] is None and board[row][2] is None and board[row][3] is None
+                and not is_attacked(row, 2, opponent)
+                and not is_attacked(row, 3, opponent)):
             moves.append(Move((row, col), (row, 2), is_castling=True))
 
         return moves

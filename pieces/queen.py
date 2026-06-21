@@ -8,7 +8,7 @@ class Queen(Piece):
     def __init__(self, color: Color) -> None:
         super().__init__(color, 'queen')
 
-    def get_moves(self, row: int, col: int, board: list[list[Optional['Piece']]]) -> list[Move]:
+    def get_moves(self, row: int, col: int, board: list[list[Optional['Piece']]], is_attacked=None) -> list[Move]:
         moves = []
 
         for dr, dc in Queen.DELTAS:

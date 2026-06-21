@@ -28,11 +28,24 @@ class Board:
         for row, rank in enumerate(self.board):
             for col, piece in enumerate(rank):
                 if piece and piece.color is not color:
-                    for move in piece.get_moves(row, col, self.board):
+                    if isinstance(piece, King):
+                        moves = piece.get_moves(row, col, self.board, self._is_square_attacked)
+                    else:
+                        moves = piece.get_moves(row, col, self.board)
+                    for move in moves:
                         if move.to_sq == king_pos:
                             return True
         return False
     
+    def _is_square_attacked(self, row: int, col: int, by_color: Color) -> bool:
+        for r, rank in enumerate(self.board):
+            for c, piece in enumerate(rank):
+                if piece and piece.color is by_color:
+                    for move in piece.get_attacks(r, c, self.board):
+                        if move.to_sq == (row, col):
+                            return True
+        return False
+        
     def make_move(self, move: Move) -> None:
         from_row, from_col = move.from_sq
         to_row, to_col = move.to_sq
@@ -42,11 +55,14 @@ class Board:
 
         if move.is_castling:
             if to_col == 6:
-                self.board[to_row][5] = self.board[to_row][7]
+                rook = self.board[to_row][7]
+                self.board[to_row][5] = rook
                 self.board[to_row][7] = None
             else:
-                self.board[to_row][3] = self.board[to_row][0]
+                rook = self.board[to_row][0]
+                self.board[to_row][3] = rook
                 self.board[to_row][0] = None
+            rook.has_moved = True
 
     def unmake_move(self, move: Move) -> None:
         from_row, from_col = move.from_sq
@@ -57,8 +73,11 @@ class Board:
 
         if move.is_castling:
             if to_col == 6:
-                self.board[to_row][7] = self.board[to_row][5]
+                rook = self.board[to_row][5]
+                self.board[to_row][7] = rook
                 self.board[to_row][5] = None
             else:
-                self.board[to_row][0] = self.board[to_row][3]
-                self.board[to_row][3] = None    
+                rook = self.board[to_row][3]
+                self.board[to_row][0] = rook
+                self.board[to_row][3] = None
+            rook.has_moved = False

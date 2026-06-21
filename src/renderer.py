@@ -71,7 +71,7 @@ class Renderer:
         target = self.board.board[target_row][target_col]
 
         matched_move = None
-        for move in self._drag.piece.get_moves(origin_row, origin_col, self.board.board):
+        for move in self._drag.piece.get_moves(origin_row, origin_col, self.board.board, self.board._is_square_attacked):
             if (target_row, target_col) == move.to_sq:
                 matched_move = move
                 break
@@ -84,18 +84,15 @@ class Renderer:
                 self.board.unmake_move(matched_move)
             else:
                 self._drag.piece.has_moved = True
-                color = 'white' if self._drag.piece.color == 'black' else 'black'
-                if self.board._is_in_check(color):
+                opponent = 'white' if self._drag.piece.color == 'black' else 'black'
+                if self.board._is_in_check(opponent):
                     sound = self.check_sound
                 elif matched_move.is_castling:
                     sound = self.castle_sound
                 elif target:
                     sound = self.capture_sound
                 else:
-                    if self.board.board[matched_move.to_sq[0]][matched_move.to_sq[1]].color == 'white':    
-                        sound = self.self_move_sound
-                    else:
-                        sound = self.opponent_move_sound
+                    sound = self.self_move_sound if self._drag.piece.color == 'white' else self.opponent_move_sound
                 sound.play()
         else:
             self.board.board[origin_row][origin_col] = self._drag.piece
