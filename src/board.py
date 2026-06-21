@@ -40,9 +40,25 @@ class Board:
         self.board[to_row][to_col] = self.board[from_row][from_col]
         self.board[from_row][from_col] = None
 
+        if move.is_castling:
+            if to_col == 6:
+                self.board[to_row][5] = self.board[to_row][7]
+                self.board[to_row][7] = None
+            else:
+                self.board[to_row][3] = self.board[to_row][0]
+                self.board[to_row][0] = None
+
     def unmake_move(self, move: Move) -> None:
         from_row, from_col = move.from_sq
         to_row, to_col = move.to_sq
 
         self.board[from_row][from_col] = self.board[to_row][to_col]
         self.board[to_row][to_col] = move.captured
+
+        if move.is_castling:
+            if to_col == 6:
+                self.board[to_row][7] = self.board[to_row][5]
+                self.board[to_row][5] = None
+            else:
+                self.board[to_row][0] = self.board[to_row][3]
+                self.board[to_row][3] = None    

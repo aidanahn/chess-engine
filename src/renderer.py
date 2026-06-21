@@ -24,9 +24,11 @@ class Renderer:
         self.running = True
 
         self.start_sound = pygame.mixer.Sound('assets/sounds/game_start.mp3')
-        self.move_sound = pygame.mixer.Sound('assets/sounds/move_self.mp3')
+        self.self_move_sound = pygame.mixer.Sound('assets/sounds/move_self.mp3')
+        self.opponent_move_sound = pygame.mixer.Sound('assets/sounds/move_opponent.mp3')
         self.capture_sound = pygame.mixer.Sound('assets/sounds/capture.mp3')
         self.check_sound = pygame.mixer.Sound('assets/sounds/move_check.mp3')
+        self.castle_sound = pygame.mixer.Sound('assets/sounds/castle.mp3')
 
     def run(self) -> None:
         self.start_sound.play()
@@ -85,10 +87,15 @@ class Renderer:
                 color = 'white' if self._drag.piece.color == 'black' else 'black'
                 if self.board._is_in_check(color):
                     sound = self.check_sound
+                elif matched_move.is_castling:
+                    sound = self.castle_sound
                 elif target:
                     sound = self.capture_sound
                 else:
-                    sound = self.move_sound
+                    if self.board.board[matched_move.to_sq[0]][matched_move.to_sq[1]].color == 'white':    
+                        sound = self.self_move_sound
+                    else:
+                        sound = self.opponent_move_sound
                 sound.play()
         else:
             self.board.board[origin_row][origin_col] = self._drag.piece
