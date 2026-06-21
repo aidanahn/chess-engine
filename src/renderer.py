@@ -23,10 +23,14 @@ class Renderer:
         self.clock = pygame.time.Clock()
         self.running = True
 
+        self.start_sound = pygame.mixer.Sound('assets/sounds/game_start.mp3')
         self.move_sound = pygame.mixer.Sound('assets/sounds/move_self.mp3')
         self.capture_sound = pygame.mixer.Sound('assets/sounds/capture.mp3')
+        self.check_sound = pygame.mixer.Sound('assets/sounds/move_check.mp3')
 
     def run(self) -> None:
+        self.start_sound.play()
+
         while self.running:
             for event in pygame.event.get():
                 self._handle_event(event)
@@ -78,7 +82,13 @@ class Renderer:
                 self.board.unmake_move(matched_move)
             else:
                 self._drag.piece.has_moved = True
-                sound = self.capture_sound if target else self.move_sound
+                color = 'white' if self._drag.piece.color == 'black' else 'black'
+                if self.board._is_in_check(color):
+                    sound = self.check_sound
+                elif target:
+                    sound = self.capture_sound
+                else:
+                    sound = self.move_sound
                 sound.play()
         else:
             self.board.board[origin_row][origin_col] = self._drag.piece
