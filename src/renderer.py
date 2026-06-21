@@ -1,8 +1,9 @@
 import pygame
 from .dragstate import DragState
-from .board import Board
-from typing import Optional
-from pieces.piece import Color
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from .game import Game, MoveResult
 
 class Renderer:
     SCREEN_WIDTH: int = 720
@@ -13,10 +14,10 @@ class Renderer:
     DARK_SQUARE: tuple[int, int, int] = (115, 149, 82)
     LIGHT_SQUARE: tuple[int, int, int] = (235, 236, 208)
     
-    def __init__(self, board: Board) -> None:
-        self.board = board
+    def __init__(self, game: 'Game') -> None:
+        self.game = game
+        self.board = game.board
         self._drag: Optional[DragState] = None
-        self.current_turn: Color = 'white'
 
         pygame.init()
         pygame.mixer.init()
@@ -66,7 +67,7 @@ class Renderer:
 
         piece = self.board.piece_at((row, col))
 
-        if piece and piece.color == self.current_turn:
+        if self.game.can_select((row, col)):
             self._drag = DragState(piece, x, y)
 
     def _on_mouse_up(self, x: int, y: int) -> None:
@@ -77,29 +78,27 @@ class Renderer:
             self._drag = None
             return
 
-        target = self.board.piece_at((target_row, target_col))
-        matched_move = self.board.find_legal_move(
+        result = self.game.try_move(
             (origin_row, origin_col),
             (target_row, target_col)
         )
 
-        if matched_move:
-            self.board.make_move(matched_move)
-
-            opponent = 'white' if self._drag.piece.color == 'black' else 'black'
-            if self.board._is_in_check(opponent):
-                sound = self.check_sound
-            elif matched_move.is_castling:
-                sound = self.castle_sound
-            elif target:
-                sound = self.capture_sound
-            else:
-                sound = self.self_move_sound if self._drag.piece.color == 'white' else self.opponent_move_sound
-
-            sound.play()
-            self.current_turn = opponent
+        if result.ok:
+            self._play_move_sound(result)
 
         self._drag = None
+
+    def _play_move_sound(self, result: 'MoveResult') -> None:
+        if result.gives_check:
+            sound = self.check_sound
+        elif result.move and result.move.is_castling:
+            sound = self.castle_sound
+        elif result.captured:
+            sound = self.capture_sound
+        else:
+            sound = self.self_move_sound if result.piece_color == 'white' else self.opponent_move_sound
+
+        sound.play()
 
     def _render(self) -> None:
         self.screen.fill((0, 0, 0))
