@@ -43,6 +43,9 @@ class Game:
         piece = self.piece_at(square)
         return piece is not None and piece.color == self.current_turn
 
+    def is_in_check(self, color: Color) -> bool:
+        return self.board.is_in_check(color)
+
     def try_move(self, from_sq: Square, to_sq: Square) -> MoveResult:
         piece = self.piece_at(from_sq)
         if piece is None or piece.color != self.current_turn:
@@ -57,7 +60,7 @@ class Game:
         self.board.make_move(move)
 
         opponent = self._opponent(piece_color)
-        gives_check = self.board._is_in_check(opponent)
+        gives_check = self.is_in_check(opponent)
         self.current_turn = opponent
 
         return MoveResult(

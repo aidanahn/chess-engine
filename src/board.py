@@ -55,13 +55,13 @@ class Board:
         if piece is None:
             return []
 
-        pseudo_moves = piece.get_moves(row, col, self.board, self._is_square_attacked)
+        pseudo_moves = piece.get_moves(row, col, self.board, self.is_square_attacked)
         return [
             move for move in pseudo_moves
             if not isinstance(move.captured, King) and not self._would_leave_king_in_check(move, piece.color)
         ]
 
-    def _is_in_check(self, color: Color) -> bool:
+    def is_in_check(self, color: Color) -> bool:
         king_pos = None
         for row, rank in enumerate(self.board):
             for col, piece in enumerate(rank):
@@ -82,11 +82,11 @@ class Board:
 
     def _would_leave_king_in_check(self, move: Move, color: Color) -> bool:
         self.make_move(move, mark_moved=False)
-        in_check = self._is_in_check(color)
+        in_check = self.is_in_check(color)
         self.unmake_move(move)
         return in_check
     
-    def _is_square_attacked(self, row: int, col: int, by_color: Color) -> bool:
+    def is_square_attacked(self, row: int, col: int, by_color: Color) -> bool:
         for r, rank in enumerate(self.board):
             for c, piece in enumerate(rank):
                 if piece and piece.color == by_color:
