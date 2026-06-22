@@ -16,7 +16,6 @@ class Renderer:
     
     def __init__(self, game: 'Game') -> None:
         self.game = game
-        self.board = game.board
         self._drag: Optional[DragState] = None
 
         pygame.init()
@@ -62,10 +61,10 @@ class Renderer:
 
     def _on_mouse_down(self, x: int, y: int) -> None:
         row, col = self._pixel_to_cell(x, y)
-        if not self.board.is_in_bounds(row, col):
+        if not self.game.is_in_bounds((row, col)):
             return
 
-        piece = self.board.piece_at((row, col))
+        piece = self.game.piece_at((row, col))
 
         if self.game.can_select((row, col)):
             self._drag = DragState(piece, x, y)
@@ -74,7 +73,7 @@ class Renderer:
         origin_row, origin_col = self._pixel_to_cell(self._drag.origin_x, self._drag.origin_y)
         target_row, target_col = self._pixel_to_cell(x, y)
 
-        if not self.board.is_in_bounds(target_row, target_col):
+        if not self.game.is_in_bounds((target_row, target_col)):
             self._drag = None
             return
 
@@ -115,7 +114,7 @@ class Renderer:
                 pygame.draw.rect(self.screen, color, rect)
 
     def _draw_pieces(self) -> None:
-        for (row, col), piece in self.board.pieces():
+        for (row, col), piece in self.game.pieces():
             if self._drag:
                 origin_row, origin_col = self._pixel_to_cell(self._drag.origin_x, self._drag.origin_y)
                 if (row, col) == (origin_row, origin_col):

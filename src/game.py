@@ -1,7 +1,9 @@
 from dataclasses import dataclass
+from typing import Iterator
 
 from .board import Board
 from .move import Move
+from pieces import Piece
 from pieces.piece import Color
 
 Square = tuple[int, int]
@@ -27,12 +29,22 @@ class Game:
 
         Renderer(self).run()
 
+    def is_in_bounds(self, square: Square) -> bool:
+        row, col = square
+        return self.board.is_in_bounds(row, col)
+
+    def piece_at(self, square: Square) -> Piece | None:
+        return self.board.piece_at(square)
+
+    def pieces(self) -> Iterator[tuple[Square, Piece]]:
+        return self.board.pieces()
+
     def can_select(self, square: Square) -> bool:
-        piece = self.board.piece_at(square)
+        piece = self.piece_at(square)
         return piece is not None and piece.color == self.current_turn
 
     def try_move(self, from_sq: Square, to_sq: Square) -> MoveResult:
-        piece = self.board.piece_at(from_sq)
+        piece = self.piece_at(from_sq)
         if piece is None or piece.color != self.current_turn:
             return MoveResult()
 
