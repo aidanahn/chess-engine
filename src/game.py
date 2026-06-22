@@ -1,11 +1,14 @@
-from dataclasses import dataclass
-from typing import Iterator
+from __future__ import annotations
 
-from pieces import Piece
-from pieces.piece import Color
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Iterator
 
 from .board import Board
-from .move import Move
+
+if TYPE_CHECKING:
+    from .move import Move
+    from pieces import Piece
+    from pieces.piece import Color
 
 Square = tuple[int, int]
 
