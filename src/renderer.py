@@ -1,6 +1,7 @@
 import pygame
-from .dragstate import DragState
 from typing import TYPE_CHECKING, Optional
+
+from .dragstate import DragState
 
 if TYPE_CHECKING:
     from .game import Game, MoveResult

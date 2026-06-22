@@ -1,4 +1,9 @@
-from pieces import Piece
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pieces import Piece
 
 class DragState:
     def __init__(self, piece: Piece, mouse_x: int, mouse_y: int) -> None:

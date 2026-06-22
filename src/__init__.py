@@ -1,1 +1,1 @@
-from src.game import Game
+from .game import Game

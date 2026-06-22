@@ -1,6 +1,8 @@
+from typing import Iterator, Optional
+
 from pieces import Rook, Knight, Bishop, Pawn, King, Queen, Piece
 from pieces.piece import Color
-from typing import Iterator, Optional
+
 from .move import Move
 
 Square = tuple[int, int]

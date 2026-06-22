@@ -1,6 +1,7 @@
-import pygame
-from typing import Literal, Optional
 from abc import ABC, abstractmethod
+from typing import Literal, Optional
+
+import pygame
 
 Color = Literal['white', 'black']
 PieceType = Literal['pawn', 'bishop', 'rook', 'queen', 'king', 'knight']

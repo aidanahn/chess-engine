@@ -1,10 +1,11 @@
 from dataclasses import dataclass
 from typing import Iterator
 
-from .board import Board
-from .move import Move
 from pieces import Piece
 from pieces.piece import Color
+
+from .board import Board
+from .move import Move
 
 Square = tuple[int, int]
 

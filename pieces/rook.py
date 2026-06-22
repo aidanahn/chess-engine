@@ -1,6 +1,8 @@
-from .piece import Piece, Color
 from typing import Optional
+
 from src.move import Move
+
+from .piece import Color, Piece
 
 class Rook(Piece):
     DELTAS = [(1, 0), (-1, 0), (0, 1), (0, -1)]
