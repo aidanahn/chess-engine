@@ -36,12 +36,26 @@ class MoveResult:
     def ok(self) -> bool:
         return self.move is not None
 
+@dataclass
+class MoveHistoryEntry:
+    move: Move
+    piece_color: Color
+    piece_type: str
+    captured_piece_type: str | None
+    is_castling: bool
+    is_en_passant: bool
+    promotion: str | None
+    gives_check: bool
+    is_checkmate: bool
+    is_stalemate: bool
+
 class Game:
     def __init__(self) -> None:
         self.board = Board()
         self.current_turn: Color = 'white'
         self.is_game_over = False
         self.pending_promotion: PendingPromotion | None = None
+        self.move_history: list[MoveHistoryEntry] = []
 
     def run(self) -> None:
         from .renderer import Renderer
@@ -134,10 +148,23 @@ class Game:
         return self._finish_turn(
             pending.move,
             pending.piece_color,
-            pending.captured
+            pending.captured,
+            promotion=piece_type
         )
 
-    def _finish_turn(self, move: Move, piece_color: Color, captured: bool) -> MoveResult:
+    def _finish_turn(
+        self,
+        move: Move,
+        piece_color: Color,
+        captured: bool,
+        promotion: str | None=None
+    ) -> MoveResult:
+        moved_piece = self.board.piece_at(move.to_sq)
+        if moved_piece is None:
+            raise ValueError(f"No moved piece found at {move.to_sq}")
+
+        piece_type = 'pawn' if promotion else moved_piece.piece_type
+        captured_piece_type = move.captured.piece_type if move.captured is not None else None
         opponent = self._opponent(piece_color)
         self.current_turn = opponent
         
@@ -145,6 +172,21 @@ class Game:
         is_checkmate = self.is_in_checkmate(opponent)
         is_stalemate = self.is_in_stalemate(opponent)
         self.is_game_over = is_checkmate or is_stalemate
+
+        self.move_history.append(
+            MoveHistoryEntry(
+                move=move,
+                piece_color=piece_color,
+                piece_type=piece_type,
+                captured_piece_type=captured_piece_type,
+                is_castling=move.is_castling,
+                is_en_passant=move.is_en_passant,
+                promotion=promotion,
+                gives_check=gives_check,
+                is_checkmate=is_checkmate,
+                is_stalemate=is_stalemate
+            )
+        )
 
         return MoveResult(
             move=move,
