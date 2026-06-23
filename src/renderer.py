@@ -32,6 +32,7 @@ class Renderer:
         self.capture_sound = pygame.mixer.Sound('assets/sounds/capture.mp3')
         self.check_sound = pygame.mixer.Sound('assets/sounds/move_check.mp3')
         self.castle_sound = pygame.mixer.Sound('assets/sounds/castle.mp3')
+        self.checkmate_sound = pygame.mixer.Sound('assets/sounds/game_end.mp3')
 
     def run(self) -> None:
         self.start_sound.play()
@@ -89,14 +90,25 @@ class Renderer:
         self._drag = None
 
     def _play_move_sound(self, result: 'MoveResult') -> None:
+        if result.is_checkmate:
+            self.check_sound.play()
+            sound = self.checkmate_sound.play()
+
         if result.gives_check:
             sound = self.check_sound
+
         elif result.move and result.move.is_castling:
             sound = self.castle_sound
+
         elif result.captured:
             sound = self.capture_sound
+
         else:
-            sound = self.self_move_sound if result.piece_color == 'white' else self.opponent_move_sound
+            sound = (
+                self.self_move_sound 
+                if result.piece_color == 'white' 
+                else self.opponent_move_sound
+            )
 
         sound.play()
 

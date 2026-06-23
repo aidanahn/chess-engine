@@ -62,7 +62,7 @@ class Board:
             pseudo_moves = piece.get_moves(row, col, self.board, self.is_square_attacked, self.en_passant_sq)
         else:
             pseudo_moves = piece.get_moves(row, col, self.board, self.is_square_attacked)
-            
+
         return [
             move for move in pseudo_moves
             if not isinstance(move.captured, King) and not self._would_leave_king_in_check(move, piece.color)
@@ -86,6 +86,19 @@ class Board:
                         if move.to_sq == king_pos:
                             return True
         return False
+    
+    def is_in_checkmate(self, color: Color) -> bool:
+        if not self.is_in_check(color):
+            return False
+        
+        for (row, col), piece in self.pieces():
+            if piece.color != color:
+                continue
+            
+            if self.get_legal_moves(row, col):
+                return False
+            
+        return True
 
     def _would_leave_king_in_check(self, move: Move, color: Color) -> bool:
         saved_ep = self.en_passant_sq

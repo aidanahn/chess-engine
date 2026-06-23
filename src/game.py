@@ -18,6 +18,7 @@ class MoveResult:
     piece_color: Color | None = None
     captured: bool = False
     gives_check: bool = False
+    is_checkmate: bool = False
 
     @property
     def ok(self) -> bool:
@@ -49,6 +50,9 @@ class Game:
 
     def is_in_check(self, color: Color) -> bool:
         return self.board.is_in_check(color)
+    
+    def is_in_checkmate(self, color: Color) -> bool:
+        return self.board.is_in_checkmate(color)
 
     def try_move(self, from_sq: Square, to_sq: Square) -> MoveResult:
         piece = self.piece_at(from_sq)
@@ -64,14 +68,17 @@ class Game:
         self.board.make_move(move)
 
         opponent = self._opponent(piece_color)
-        gives_check = self.is_in_check(opponent)
         self.current_turn = opponent
+        
+        gives_check = self.is_in_check(opponent)
+        is_checkmate = self.is_in_checkmate(opponent)
 
         return MoveResult(
             move=move,
             piece_color=piece_color,
             captured=captured,
-            gives_check=gives_check
+            gives_check=gives_check,
+            is_checkmate=is_checkmate
         )
 
     def _opponent(self, color: Color) -> Color:
