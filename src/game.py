@@ -29,6 +29,7 @@ class MoveResult:
     captured: bool = False
     gives_check: bool = False
     is_checkmate: bool = False
+    is_stalemate: bool = False
     needs_promotion: bool = False
 
     @property
@@ -69,6 +70,9 @@ class Game:
     
     def is_in_checkmate(self, color: Color) -> bool:
         return self.board.is_in_checkmate(color)
+
+    def is_in_stalemate(self, color: Color) -> bool:
+        return self.board.is_in_stalemate(color)
 
     def try_move(self, from_sq: Square, to_sq: Square) -> MoveResult:
         if self.is_game_over or self.pending_promotion:
@@ -139,14 +143,16 @@ class Game:
         
         gives_check = self.is_in_check(opponent)
         is_checkmate = self.is_in_checkmate(opponent)
-        self.is_game_over = is_checkmate
+        is_stalemate = self.is_in_stalemate(opponent)
+        self.is_game_over = is_checkmate or is_stalemate
 
         return MoveResult(
             move=move,
             piece_color=piece_color,
             captured=captured,
             gives_check=gives_check,
-            is_checkmate=is_checkmate
+            is_checkmate=is_checkmate,
+            is_stalemate=is_stalemate
         )
 
     def _opponent(self, color: Color) -> Color:

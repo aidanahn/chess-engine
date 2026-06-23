@@ -101,6 +101,10 @@ class Renderer:
             self.check_sound.play()
             self.game_over_sound.play()
             return
+        
+        if result.is_stalemate:
+            self.game_over_sound.play()
+            return
 
         if result.gives_check:
             sound = self.check_sound

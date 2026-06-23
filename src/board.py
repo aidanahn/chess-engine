@@ -90,15 +90,24 @@ class Board:
     def is_in_checkmate(self, color: Color) -> bool:
         if not self.is_in_check(color):
             return False
-        
+
+        return not self.has_legal_moves(color)
+
+    def is_in_stalemate(self, color: Color) -> bool:
+        if self.is_in_check(color):
+            return False
+
+        return not self.has_legal_moves(color)
+
+    def has_legal_moves(self, color: Color) -> bool:
         for (row, col), piece in self.pieces():
             if piece.color != color:
                 continue
-            
+
             if self.get_legal_moves(row, col):
-                return False
-            
-        return True
+                return True
+
+        return False
 
     def is_promotion_square(self, square: Square, color: Color) -> bool:
         row, _ = square
