@@ -1,6 +1,6 @@
 from typing import Iterator, Optional
 
-from pieces import Rook, Knight, Bishop, Pawn, King, Queen, Piece
+from pieces import Bishop, King, Knight, Pawn, Piece, Queen, Rook
 from pieces.piece import Color
 
 from .move import Move
@@ -99,6 +99,30 @@ class Board:
                 return False
             
         return True
+
+    def is_promotion_square(self, square: Square, color: Color) -> bool:
+        row, _ = square
+        return (color == 'white' and row == 0) or (color == 'black' and row == 7)
+
+    def promote_pawn(self, square: Square, piece_type: str) -> None:
+        pawn = self.piece_at(square)
+        if not isinstance(pawn, Pawn):
+            raise ValueError(f"No pawn to promote at {square}")
+
+        promotion_pieces = {
+            'queen': Queen,
+            'rook': Rook,
+            'bishop': Bishop,
+            'knight': Knight
+        }
+
+        piece_class = promotion_pieces.get(piece_type)
+        if piece_class is None:
+            raise ValueError(f"Invalid promotion piece: {piece_type}")
+
+        promoted_piece = piece_class(pawn.color)
+        promoted_piece.has_moved = True
+        self.set_piece(square, promoted_piece)
 
     def _would_leave_king_in_check(self, move: Move, color: Color) -> bool:
         saved_ep = self.en_passant_sq

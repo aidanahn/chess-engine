@@ -11,6 +11,16 @@ if TYPE_CHECKING:
     from pieces.piece import Color
 
 Square = tuple[int, int]
+PROMOTION_CHOICES = ('queen', 'knight', 'rook', 'bishop')
+
+@dataclass
+class PendingPromotion:
+    move: Move
+    piece_color: Color
+    captured: bool
+    square: Square
+    piece_had_moved: bool
+    previous_en_passant_sq: Square | None
 
 @dataclass
 class MoveResult:
@@ -19,6 +29,7 @@ class MoveResult:
     captured: bool = False
     gives_check: bool = False
     is_checkmate: bool = False
+    needs_promotion: bool = False
 
     @property
     def ok(self) -> bool:
@@ -29,6 +40,7 @@ class Game:
         self.board = Board()
         self.current_turn: Color = 'white'
         self.is_game_over = False
+        self.pending_promotion: PendingPromotion | None = None
 
     def run(self) -> None:
         from .renderer import Renderer
@@ -46,7 +58,7 @@ class Game:
         return self.board.pieces()
 
     def can_select(self, square: Square) -> bool:
-        if self.is_game_over:
+        if self.is_game_over or self.pending_promotion:
             return False
 
         piece = self.piece_at(square)
@@ -59,7 +71,7 @@ class Game:
         return self.board.is_in_checkmate(color)
 
     def try_move(self, from_sq: Square, to_sq: Square) -> MoveResult:
-        if self.is_game_over:
+        if self.is_game_over or self.pending_promotion:
             return MoveResult()
 
         piece = self.piece_at(from_sq)
@@ -72,8 +84,56 @@ class Game:
 
         captured = move.captured is not None
         piece_color = piece.color
+        piece_had_moved = piece.has_moved
+        previous_en_passant_sq = self.board.en_passant_sq
         self.board.make_move(move)
 
+        if self.board.is_promotion_square(move.to_sq, piece_color) and piece.piece_type == 'pawn':
+            self.pending_promotion = PendingPromotion(
+                move=move,
+                piece_color=piece_color,
+                captured=captured,
+                square=move.to_sq,
+                piece_had_moved=piece_had_moved,
+                previous_en_passant_sq=previous_en_passant_sq
+            )
+            return MoveResult(
+                move=move,
+                piece_color=piece_color,
+                captured=captured,
+                needs_promotion=True
+            )
+
+        return self._finish_turn(move, piece_color, captured)
+
+    def cancel_promotion(self) -> None:
+        if self.pending_promotion is None:
+            return
+
+        pending = self.pending_promotion
+        self.pending_promotion = None
+        self.board.unmake_move(pending.move)
+        self.board.en_passant_sq = pending.previous_en_passant_sq
+
+        piece = self.board.piece_at(pending.move.from_sq)
+        if piece is not None:
+            piece.has_moved = pending.piece_had_moved
+
+    def promote(self, piece_type: str) -> MoveResult:
+        if self.pending_promotion is None or piece_type not in PROMOTION_CHOICES:
+            return MoveResult()
+
+        pending = self.pending_promotion
+        self.pending_promotion = None
+        self.board.promote_pawn(pending.square, piece_type)
+
+        return self._finish_turn(
+            pending.move,
+            pending.piece_color,
+            pending.captured
+        )
+
+    def _finish_turn(self, move: Move, piece_color: Color, captured: bool) -> MoveResult:
         opponent = self._opponent(piece_color)
         self.current_turn = opponent
         

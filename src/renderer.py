@@ -2,6 +2,7 @@ import pygame
 from typing import TYPE_CHECKING, Optional
 
 from .dragstate import DragState
+from .game import PROMOTION_CHOICES
 
 if TYPE_CHECKING:
     from .game import Game, MoveResult
@@ -14,6 +15,7 @@ class Renderer:
 
     DARK_SQUARE: tuple[int, int, int] = (115, 149, 82)
     LIGHT_SQUARE: tuple[int, int, int] = (235, 236, 208)
+    PROMOTION_PANEL_RADIUS: int = 2
     
     def __init__(self, game: 'Game') -> None:
         self.game = game
@@ -34,6 +36,7 @@ class Renderer:
         self.castle_sound = pygame.mixer.Sound('assets/sounds/castle.mp3')
         self.game_over_sound = pygame.mixer.Sound('assets/sounds/game_end.mp3')
         self.piece_images = self._load_piece_images()
+        self._cursor = pygame.SYSTEM_CURSOR_ARROW
 
     def run(self) -> None:
         self.start_sound.play()
@@ -53,6 +56,9 @@ class Renderer:
             case pygame.QUIT:
                 self.running = False
             
+            case pygame.MOUSEBUTTONDOWN if event.button == 1 and self.game.pending_promotion:
+                self._on_promotion_click(*pygame.mouse.get_pos())
+
             case pygame.MOUSEBUTTONDOWN if event.button == 1:
                 self._on_mouse_down(*pygame.mouse.get_pos())
 
@@ -85,7 +91,7 @@ class Renderer:
             (target_row, target_col)
         )
 
-        if result.ok:
+        if result.ok and not result.needs_promotion:
             self._play_move_sound(result)
 
         self._drag = None
@@ -119,6 +125,7 @@ class Renderer:
         self._draw_board()
         self._draw_pieces()
         self._draw_drag()
+        self._draw_promotion_picker()
 
     def _draw_board(self) -> None:
         for row in range(8):
@@ -165,3 +172,101 @@ class Renderer:
 
     def _piece_image(self, piece) -> pygame.Surface:
         return self.piece_images[(piece.color, piece.piece_type)]
+
+    def _promotion_rects(self) -> list[tuple[str, pygame.Rect]]:
+        pending = self.game.pending_promotion
+        if pending is None:
+            return []
+
+        option_size = Renderer.SQUARE_SIZE
+        close_height = option_size // 2
+        total_height = option_size * len(PROMOTION_CHOICES) + close_height
+        row, col = pending.square
+        x = col * option_size
+        y = 0 if row == 0 else Renderer.SCREEN_HEIGHT - total_height
+
+        rects = [
+            (
+                piece_type,
+                pygame.Rect(x, y + index * option_size, option_size, option_size)
+            )
+            for index, piece_type in enumerate(PROMOTION_CHOICES)
+        ]
+        rects.append(
+            (
+                'close',
+                pygame.Rect(x, y + len(PROMOTION_CHOICES) * option_size, option_size, close_height)
+            )
+        )
+        return rects
+
+    def _on_promotion_click(self, x: int, y: int) -> None:
+        for piece_type, rect in self._promotion_rects():
+            if not rect.collidepoint(x, y):
+                continue
+
+            if piece_type == 'close':
+                self.game.cancel_promotion()
+                self._set_cursor(pygame.SYSTEM_CURSOR_ARROW)
+                return
+
+            else:
+                result = self.game.promote(piece_type)
+                if result.ok:
+                    self._play_move_sound(result)
+                return
+
+    def _draw_promotion_picker(self) -> None:
+        pending = self.game.pending_promotion
+        if pending is None:
+            self._set_cursor(pygame.SYSTEM_CURSOR_ARROW)
+            return
+
+        rects = self._promotion_rects()
+        panel_rect = rects[0][1].unionall([rect for _, rect in rects[1:]])
+        pygame.draw.rect(
+            self.screen,
+            (255, 255, 255),
+            panel_rect,
+            border_radius=Renderer.PROMOTION_PANEL_RADIUS
+        )
+
+        close_rect = rects[-1][1]
+        footer_surface = pygame.Surface(panel_rect.size, pygame.SRCALPHA)
+        footer_rect = close_rect.move(-panel_rect.x, -panel_rect.y)
+        pygame.draw.rect(footer_surface, (238, 238, 238), footer_rect)
+
+        panel_mask = pygame.Surface(panel_rect.size, pygame.SRCALPHA)
+        pygame.draw.rect(
+            panel_mask,
+            (255, 255, 255, 255),
+            panel_mask.get_rect(),
+            border_radius=Renderer.PROMOTION_PANEL_RADIUS
+        )
+        footer_surface.blit(panel_mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+        self.screen.blit(footer_surface, panel_rect.topleft)
+
+        mouse_pos = pygame.mouse.get_pos()
+        for piece_type, rect in rects:
+            if piece_type == 'close':
+                font = pygame.font.SysFont(None, 36)
+                text = font.render('x', True, (130, 130, 130))
+                text_rect = text.get_rect(center=rect.center)
+                self.screen.blit(text, text_rect)
+            else:
+                image = self.piece_images[(pending.piece_color, piece_type)]
+                self.screen.blit(image, rect.topleft)
+
+        is_hovering_picker = any(rect.collidepoint(mouse_pos) for _, rect in rects)
+        cursor = pygame.SYSTEM_CURSOR_HAND if is_hovering_picker else pygame.SYSTEM_CURSOR_ARROW
+        self._set_cursor(cursor)
+
+    def _set_cursor(self, cursor: int) -> None:
+        if self._cursor == cursor:
+            return
+
+        try:
+            pygame.mouse.set_cursor(cursor)
+            self._cursor = cursor
+        except pygame.error:
+            pass
