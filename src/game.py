@@ -28,6 +28,7 @@ class Game:
     def __init__(self) -> None:
         self.board = Board()
         self.current_turn: Color = 'white'
+        self.is_game_over = False
 
     def run(self) -> None:
         from .renderer import Renderer
@@ -45,6 +46,9 @@ class Game:
         return self.board.pieces()
 
     def can_select(self, square: Square) -> bool:
+        if self.is_game_over:
+            return False
+
         piece = self.piece_at(square)
         return piece is not None and piece.color == self.current_turn
 
@@ -55,6 +59,9 @@ class Game:
         return self.board.is_in_checkmate(color)
 
     def try_move(self, from_sq: Square, to_sq: Square) -> MoveResult:
+        if self.is_game_over:
+            return MoveResult()
+
         piece = self.piece_at(from_sq)
         if piece is None or piece.color != self.current_turn:
             return MoveResult()
@@ -72,6 +79,7 @@ class Game:
         
         gives_check = self.is_in_check(opponent)
         is_checkmate = self.is_in_checkmate(opponent)
+        self.is_game_over = is_checkmate
 
         return MoveResult(
             move=move,

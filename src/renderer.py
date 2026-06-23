@@ -32,7 +32,8 @@ class Renderer:
         self.capture_sound = pygame.mixer.Sound('assets/sounds/capture.mp3')
         self.check_sound = pygame.mixer.Sound('assets/sounds/move_check.mp3')
         self.castle_sound = pygame.mixer.Sound('assets/sounds/castle.mp3')
-        self.checkmate_sound = pygame.mixer.Sound('assets/sounds/game_end.mp3')
+        self.game_over_sound = pygame.mixer.Sound('assets/sounds/game_end.mp3')
+        self.piece_images = self._load_piece_images()
 
     def run(self) -> None:
         self.start_sound.play()
@@ -92,7 +93,8 @@ class Renderer:
     def _play_move_sound(self, result: 'MoveResult') -> None:
         if result.is_checkmate:
             self.check_sound.play()
-            sound = self.checkmate_sound.play()
+            self.game_over_sound.play()
+            return
 
         if result.gives_check:
             sound = self.check_sound
@@ -135,14 +137,31 @@ class Renderer:
 
             x_pos = col * Renderer.SQUARE_SIZE
             y_pos = row * Renderer.SQUARE_SIZE
-            self.screen.blit(piece.image, (x_pos, y_pos))
+            self.screen.blit(self._piece_image(piece), (x_pos, y_pos))
 
     def _draw_drag(self) -> None:
         if self._drag:
             self.screen.blit(
-                self._drag.piece.image, 
+                self._piece_image(self._drag.piece), 
                 (self._drag.mouse_x - Renderer.SQUARE_SIZE // 2, self._drag.mouse_y - Renderer.SQUARE_SIZE // 2)
             )
 
     def _pixel_to_cell(self, x: int, y: int) -> tuple[int, int]:
         return y // Renderer.SQUARE_SIZE, x // Renderer.SQUARE_SIZE
+
+    def _load_piece_images(self) -> dict[tuple[str, str], pygame.Surface]:
+        images = {}
+        piece_types = ('pawn', 'bishop', 'rook', 'queen', 'king', 'knight')
+
+        for color in ('white', 'black'):
+            for piece_type in piece_types:
+                image = pygame.image.load(f'assets/pieces/{color}_{piece_type}.png')
+                images[(color, piece_type)] = pygame.transform.smoothscale(
+                    image,
+                    (Renderer.SQUARE_SIZE, Renderer.SQUARE_SIZE)
+                )
+
+        return images
+
+    def _piece_image(self, piece) -> pygame.Surface:
+        return self.piece_images[(piece.color, piece.piece_type)]
