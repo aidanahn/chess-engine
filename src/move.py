@@ -12,3 +12,4 @@ class Move:
     to_sq: tuple[int, int]
     captured: Piece | None = None
     is_castling: bool = False
+    is_en_passant: bool = False

@@ -20,6 +20,7 @@ class Board:
         ]
         self.board[1] = [Pawn('black') for _ in range(8)]
         self.board[6] = [Pawn('white') for _ in range(8)]
+        self.en_passant_sq: Optional[tuple[int, int]] = None
 
     def is_in_bounds(self, row: int, col: int) -> bool:
         return 0 <= row < 8 and 0 <= col < 8
@@ -57,7 +58,11 @@ class Board:
         if piece is None:
             return []
 
-        pseudo_moves = piece.get_moves(row, col, self.board, self.is_square_attacked)
+        if isinstance(piece, Pawn):
+            pseudo_moves = piece.get_moves(row, col, self.board, self.is_square_attacked, self.en_passant_sq)
+        else:
+            pseudo_moves = piece.get_moves(row, col, self.board, self.is_square_attacked)
+            
         return [
             move for move in pseudo_moves
             if not isinstance(move.captured, King) and not self._would_leave_king_in_check(move, piece.color)
@@ -83,9 +88,11 @@ class Board:
         return False
 
     def _would_leave_king_in_check(self, move: Move, color: Color) -> bool:
+        saved_ep = self.en_passant_sq
         self.make_move(move, mark_moved=False)
         in_check = self.is_in_check(color)
         self.unmake_move(move)
+        self.en_passant_sq = saved_ep
         return in_check
     
     def is_square_attacked(self, row: int, col: int, by_color: Color) -> bool:
@@ -105,6 +112,9 @@ class Board:
         self.set_piece(move.to_sq, piece)
         self.set_piece(move.from_sq, None)
 
+        if move.is_en_passant:
+            self.set_piece((from_row, to_col), None)
+
         if move.is_castling:
             if to_col == 6:
                 rook = self.piece_at((to_row, 7))
@@ -118,6 +128,11 @@ class Board:
             if mark_moved and rook is not None:
                 rook.has_moved = True
 
+        if isinstance(piece, Pawn) and abs(to_row - from_row) == 2:
+            self.en_passant_sq = ((from_row + to_row) // 2, to_col)
+        else:
+            self.en_passant_sq = None
+
         if mark_moved and piece is not None:
             piece.has_moved = True
 
@@ -126,7 +141,12 @@ class Board:
         to_row, to_col = move.to_sq
 
         self.set_piece(move.from_sq, self.piece_at(move.to_sq))
-        self.set_piece(move.to_sq, move.captured)
+        self.set_piece(move.to_sq, None)
+
+        if move.is_en_passant:
+            self.set_piece((from_row, to_col), move.captured)
+        else:
+            self.set_piece(move.to_sq, move.captured)
 
         if move.is_castling:
             if to_col == 6:

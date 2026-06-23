@@ -8,7 +8,7 @@ class Pawn(Piece):
     def __init__(self, color: Color) -> None:
         super().__init__(color, 'pawn')
 
-    def get_moves(self, row: int, col: int, board: list[list[Optional['Piece']]], is_attacked=None) -> list[Move]:
+    def get_moves(self, row: int, col: int, board: list[list[Optional['Piece']]], is_attacked=None, en_passant_sq=None) -> list[Move]:
         moves = []
         direction = 1 if self.color == 'black' else -1
 
@@ -26,6 +26,9 @@ class Pawn(Piece):
                 target = board[tr][tc]
                 if target is not None and target.color != self.color:
                     moves.append(Move((row, col), (tr, tc), captured=target))
+                elif en_passant_sq == (tr, tc):
+                    captured_pawn = board[row][tc]
+                    moves.append(Move((row, col), (tr, tc), captured=captured_pawn, is_en_passant=True))
 
         return moves
     
