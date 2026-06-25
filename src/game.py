@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Iterator
 
+from pieces import Pawn
+
 from .board import Board
 
 if TYPE_CHECKING:
@@ -42,6 +44,11 @@ class MoveHistoryEntry:
     piece_color: Color
     piece_type: str
     captured_piece_type: str | None
+    piece_had_moved: bool
+    rook_had_moved: bool | None
+    previous_en_passant_sq: Square | None
+    previous_current_turn: Color
+    previous_is_game_over: bool
     is_castling: bool
     is_en_passant: bool
     promotion: str | None
@@ -88,6 +95,9 @@ class Game:
     def is_in_stalemate(self, color: Color) -> bool:
         return self.board.is_in_stalemate(color)
 
+    def legal_moves(self, color: Color | None=None) -> list[Move]:
+        return self.board.get_all_legal_moves(color or self.current_turn)
+
     def try_move(self, from_sq: Square, to_sq: Square) -> MoveResult:
         if self.is_game_over or self.pending_promotion:
             return MoveResult()
@@ -103,7 +113,10 @@ class Game:
         captured = move.captured is not None
         piece_color = piece.color
         piece_had_moved = piece.has_moved
+        rook_had_moved = self._castling_rook_had_moved(move)
         previous_en_passant_sq = self.board.en_passant_sq
+        previous_current_turn = self.current_turn
+        previous_is_game_over = self.is_game_over
         self.board.make_move(move)
 
         if self.board.is_promotion_square(move.to_sq, piece_color) and piece.piece_type == 'pawn':
@@ -122,7 +135,16 @@ class Game:
                 needs_promotion=True
             )
 
-        return self._finish_turn(move, piece_color, captured)
+        return self._finish_turn(
+            move,
+            piece_color,
+            captured,
+            piece_had_moved=piece_had_moved,
+            rook_had_moved=rook_had_moved,
+            previous_en_passant_sq=previous_en_passant_sq,
+            previous_current_turn=previous_current_turn,
+            previous_is_game_over=previous_is_game_over
+        )
 
     def cancel_promotion(self) -> None:
         if self.pending_promotion is None:
@@ -149,14 +171,54 @@ class Game:
             pending.move,
             pending.piece_color,
             pending.captured,
+            piece_had_moved=pending.piece_had_moved,
+            previous_en_passant_sq=pending.previous_en_passant_sq,
+            previous_current_turn=pending.piece_color,
+            previous_is_game_over=False,
             promotion=piece_type
         )
+
+    def undo_last_move(self) -> MoveHistoryEntry | None:
+        if self.pending_promotion:
+            self.cancel_promotion()
+            return None
+
+        if not self.move_history:
+            return None
+
+        entry = self.move_history.pop()
+        self.current_turn = entry.previous_current_turn
+        self.is_game_over = entry.previous_is_game_over
+
+        if entry.promotion:
+            pawn = Pawn(entry.piece_color)
+            pawn.has_moved = entry.piece_had_moved
+            self.board.set_piece(entry.move.from_sq, pawn)
+            self.board.set_piece(entry.move.to_sq, entry.move.captured)
+        else:
+            self.board.unmake_move(entry.move)
+            piece = self.board.piece_at(entry.move.from_sq)
+            if piece is not None:
+                piece.has_moved = entry.piece_had_moved
+
+        if entry.is_castling and entry.rook_had_moved is not None:
+            rook = self.board.piece_at(self._castling_rook_square(entry.move))
+            if rook is not None:
+                rook.has_moved = entry.rook_had_moved
+
+        self.board.en_passant_sq = entry.previous_en_passant_sq
+        return entry
 
     def _finish_turn(
         self,
         move: Move,
         piece_color: Color,
         captured: bool,
+        piece_had_moved: bool,
+        previous_en_passant_sq: Square | None,
+        previous_current_turn: Color,
+        previous_is_game_over: bool,
+        rook_had_moved: bool | None=None,
         promotion: str | None=None
     ) -> MoveResult:
         moved_piece = self.board.piece_at(move.to_sq)
@@ -179,6 +241,11 @@ class Game:
                 piece_color=piece_color,
                 piece_type=piece_type,
                 captured_piece_type=captured_piece_type,
+                piece_had_moved=piece_had_moved,
+                rook_had_moved=rook_had_moved,
+                previous_en_passant_sq=previous_en_passant_sq,
+                previous_current_turn=previous_current_turn,
+                previous_is_game_over=previous_is_game_over,
                 is_castling=move.is_castling,
                 is_en_passant=move.is_en_passant,
                 promotion=promotion,
@@ -199,3 +266,15 @@ class Game:
 
     def _opponent(self, color: Color) -> Color:
         return 'white' if color == 'black' else 'black'
+
+    def _castling_rook_had_moved(self, move: Move) -> bool | None:
+        if not move.is_castling:
+            return None
+
+        rook = self.board.piece_at(self._castling_rook_square(move))
+        return rook.has_moved if rook is not None else None
+
+    def _castling_rook_square(self, move: Move) -> Square:
+        row, _ = move.from_sq
+        _, to_col = move.to_sq
+        return (row, 7) if to_col == 6 else (row, 0)

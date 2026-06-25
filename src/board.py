@@ -68,6 +68,17 @@ class Board:
             if not isinstance(move.captured, King) and not self._would_leave_king_in_check(move, piece.color)
         ]
 
+    def get_all_legal_moves(self, color: Color) -> list[Move]:
+        moves = []
+
+        for (row, col), piece in self.pieces():
+            if piece.color != color:
+                continue
+
+            moves.extend(self.get_legal_moves(row, col))
+
+        return moves
+
     def is_in_check(self, color: Color) -> bool:
         king_pos = None
         for row, rank in enumerate(self.board):
@@ -100,14 +111,7 @@ class Board:
         return not self.has_legal_moves(color)
 
     def has_legal_moves(self, color: Color) -> bool:
-        for (row, col), piece in self.pieces():
-            if piece.color != color:
-                continue
-
-            if self.get_legal_moves(row, col):
-                return True
-
-        return False
+        return bool(self.get_all_legal_moves(color))
 
     def is_promotion_square(self, square: Square, color: Color) -> bool:
         row, _ = square
