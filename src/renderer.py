@@ -114,6 +114,10 @@ class Renderer:
             self.game_over_sound.play()
             return
 
+        if result.is_draw:
+            self.game_over_sound.play()
+            return
+
         if result.gives_check:
             sound = self.check_sound
 

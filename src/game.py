@@ -23,6 +23,8 @@ class PendingPromotion:
     square: Square
     piece_had_moved: bool
     previous_en_passant_sq: Square | None
+    previous_halfmove_clock: int
+    previous_draw_reason: str | None
 
 @dataclass
 class MoveResult:
@@ -32,6 +34,8 @@ class MoveResult:
     gives_check: bool = False
     is_checkmate: bool = False
     is_stalemate: bool = False
+    is_draw: bool = False
+    draw_reason: str | None = None
     needs_promotion: bool = False
 
     @property
@@ -47,22 +51,30 @@ class MoveHistoryEntry:
     piece_had_moved: bool
     rook_had_moved: bool | None
     previous_en_passant_sq: Square | None
+    previous_halfmove_clock: int
+    previous_draw_reason: str | None
     previous_current_turn: Color
     previous_is_game_over: bool
+    position_key_after: tuple
     is_castling: bool
     is_en_passant: bool
     promotion: str | None
     gives_check: bool
     is_checkmate: bool
     is_stalemate: bool
+    is_draw: bool
+    draw_reason: str | None
 
 class Game:
     def __init__(self) -> None:
         self.board = Board()
         self.current_turn: Color = 'white'
         self.is_game_over = False
+        self.draw_reason: str | None = None
+        self.halfmove_clock = 0
         self.pending_promotion: PendingPromotion | None = None
         self.move_history: list[MoveHistoryEntry] = []
+        self._position_counts: dict[tuple, int] = {self._position_key(): 1}
 
     def run(self) -> None:
         from .renderer import Renderer
@@ -95,6 +107,9 @@ class Game:
     def is_in_stalemate(self, color: Color) -> bool:
         return self.board.is_in_stalemate(color)
 
+    def is_draw(self) -> bool:
+        return self.draw_reason is not None
+
     def legal_moves(self, color: Color | None=None) -> list[Move]:
         return self.board.get_all_legal_moves(color or self.current_turn)
 
@@ -115,8 +130,10 @@ class Game:
         piece_had_moved = piece.has_moved
         rook_had_moved = self._castling_rook_had_moved(move)
         previous_en_passant_sq = self.board.en_passant_sq
+        previous_halfmove_clock = self.halfmove_clock
         previous_current_turn = self.current_turn
         previous_is_game_over = self.is_game_over
+        previous_draw_reason = self.draw_reason
         self.board.make_move(move)
 
         if self.board.is_promotion_square(move.to_sq, piece_color) and piece.piece_type == 'pawn':
@@ -126,7 +143,9 @@ class Game:
                 captured=captured,
                 square=move.to_sq,
                 piece_had_moved=piece_had_moved,
-                previous_en_passant_sq=previous_en_passant_sq
+                previous_en_passant_sq=previous_en_passant_sq,
+                previous_halfmove_clock=previous_halfmove_clock,
+                previous_draw_reason=previous_draw_reason
             )
             return MoveResult(
                 move=move,
@@ -142,8 +161,10 @@ class Game:
             piece_had_moved=piece_had_moved,
             rook_had_moved=rook_had_moved,
             previous_en_passant_sq=previous_en_passant_sq,
+            previous_halfmove_clock=previous_halfmove_clock,
             previous_current_turn=previous_current_turn,
-            previous_is_game_over=previous_is_game_over
+            previous_is_game_over=previous_is_game_over,
+            previous_draw_reason=previous_draw_reason
         )
 
     def cancel_promotion(self) -> None:
@@ -154,6 +175,8 @@ class Game:
         self.pending_promotion = None
         self.board.unmake_move(pending.move)
         self.board.en_passant_sq = pending.previous_en_passant_sq
+        self.halfmove_clock = pending.previous_halfmove_clock
+        self.draw_reason = pending.previous_draw_reason
 
         piece = self.board.piece_at(pending.move.from_sq)
         if piece is not None:
@@ -173,8 +196,10 @@ class Game:
             pending.captured,
             piece_had_moved=pending.piece_had_moved,
             previous_en_passant_sq=pending.previous_en_passant_sq,
+            previous_halfmove_clock=pending.previous_halfmove_clock,
             previous_current_turn=pending.piece_color,
             previous_is_game_over=False,
+            previous_draw_reason=pending.previous_draw_reason,
             promotion=piece_type
         )
 
@@ -187,8 +212,11 @@ class Game:
             return None
 
         entry = self.move_history.pop()
+        self._decrement_position_count(entry.position_key_after)
         self.current_turn = entry.previous_current_turn
         self.is_game_over = entry.previous_is_game_over
+        self.halfmove_clock = entry.previous_halfmove_clock
+        self.draw_reason = entry.previous_draw_reason
 
         if entry.promotion:
             pawn = Pawn(entry.piece_color)
@@ -216,8 +244,10 @@ class Game:
         captured: bool,
         piece_had_moved: bool,
         previous_en_passant_sq: Square | None,
+        previous_halfmove_clock: int,
         previous_current_turn: Color,
         previous_is_game_over: bool,
+        previous_draw_reason: str | None,
         rook_had_moved: bool | None=None,
         promotion: str | None=None
     ) -> MoveResult:
@@ -229,11 +259,21 @@ class Game:
         captured_piece_type = move.captured.piece_type if move.captured is not None else None
         opponent = self._opponent(piece_color)
         self.current_turn = opponent
+        self.halfmove_clock = (
+            0
+            if piece_type == 'pawn' or captured
+            else previous_halfmove_clock + 1
+        )
         
         gives_check = self.is_in_check(opponent)
         is_checkmate = self.is_in_checkmate(opponent)
         is_stalemate = self.is_in_stalemate(opponent)
-        self.is_game_over = is_checkmate or is_stalemate
+        position_key_after = self._position_key()
+        self._position_counts[position_key_after] = self._position_counts.get(position_key_after, 0) + 1
+        draw_reason = self._draw_reason(is_checkmate, is_stalemate)
+        is_draw = draw_reason is not None
+        self.draw_reason = draw_reason
+        self.is_game_over = is_checkmate or is_stalemate or is_draw
 
         self.move_history.append(
             MoveHistoryEntry(
@@ -244,14 +284,19 @@ class Game:
                 piece_had_moved=piece_had_moved,
                 rook_had_moved=rook_had_moved,
                 previous_en_passant_sq=previous_en_passant_sq,
+                previous_halfmove_clock=previous_halfmove_clock,
+                previous_draw_reason=previous_draw_reason,
                 previous_current_turn=previous_current_turn,
                 previous_is_game_over=previous_is_game_over,
+                position_key_after=position_key_after,
                 is_castling=move.is_castling,
                 is_en_passant=move.is_en_passant,
                 promotion=promotion,
                 gives_check=gives_check,
                 is_checkmate=is_checkmate,
-                is_stalemate=is_stalemate
+                is_stalemate=is_stalemate,
+                is_draw=is_draw,
+                draw_reason=draw_reason
             )
         )
 
@@ -261,11 +306,103 @@ class Game:
             captured=captured,
             gives_check=gives_check,
             is_checkmate=is_checkmate,
-            is_stalemate=is_stalemate
+            is_stalemate=is_stalemate,
+            is_draw=is_draw,
+            draw_reason=draw_reason
         )
 
     def _opponent(self, color: Color) -> Color:
         return 'white' if color == 'black' else 'black'
+
+    def _draw_reason(self, is_checkmate: bool, is_stalemate: bool) -> str | None:
+        if is_checkmate or is_stalemate:
+            return None
+
+        if self._has_insufficient_material():
+            return 'insufficient_material'
+
+        if self.halfmove_clock >= 100:
+            return 'fifty_move_rule'
+
+        if self._position_counts.get(self._position_key(), 0) >= 3:
+            return 'threefold_repetition'
+
+        return None
+
+    def _has_insufficient_material(self) -> bool:
+        pieces = [
+            (square, piece)
+            for square, piece in self.board.pieces()
+            if piece.piece_type != 'king'
+        ]
+
+        if not pieces:
+            return True
+
+        if any(piece.piece_type in ('pawn', 'rook', 'queen') for _, piece in pieces):
+            return False
+
+        if len(pieces) == 1:
+            return pieces[0][1].piece_type in ('bishop', 'knight')
+
+        if all(piece.piece_type == 'bishop' for _, piece in pieces):
+            return len({self._square_color(square) for square, _ in pieces}) == 1
+
+        return False
+
+    def _position_key(self) -> tuple:
+        pieces = tuple(
+            sorted(
+                (
+                    row,
+                    col,
+                    piece.color,
+                    piece.piece_type
+                )
+                for (row, col), piece in self.board.pieces()
+            )
+        )
+        return (
+            self.current_turn,
+            pieces,
+            self._castling_rights_key(),
+            self.board.en_passant_sq
+        )
+
+    def _castling_rights_key(self) -> tuple[bool, bool, bool, bool]:
+        return (
+            self._can_still_castle('white', kingside=True),
+            self._can_still_castle('white', kingside=False),
+            self._can_still_castle('black', kingside=True),
+            self._can_still_castle('black', kingside=False)
+        )
+
+    def _can_still_castle(self, color: Color, kingside: bool) -> bool:
+        row = 7 if color == 'white' else 0
+        rook_col = 7 if kingside else 0
+        king = self.board.piece_at((row, 4))
+        rook = self.board.piece_at((row, rook_col))
+        return (
+            king is not None
+            and rook is not None
+            and king.piece_type == 'king'
+            and rook.piece_type == 'rook'
+            and king.color == color
+            and rook.color == color
+            and not king.has_moved
+            and not rook.has_moved
+        )
+
+    def _square_color(self, square: Square) -> int:
+        row, col = square
+        return (row + col) % 2
+
+    def _decrement_position_count(self, position_key: tuple) -> None:
+        count = self._position_counts.get(position_key, 0)
+        if count <= 1:
+            self._position_counts.pop(position_key, None)
+        else:
+            self._position_counts[position_key] = count - 1
 
     def _castling_rook_had_moved(self, move: Move) -> bool | None:
         if not move.is_castling:
