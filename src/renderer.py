@@ -6,6 +6,7 @@ from .game import PROMOTION_CHOICES
 
 if TYPE_CHECKING:
     from .game import Game, MoveResult
+    from .move import Move
 
 class Renderer:
     SCREEN_WIDTH: int = 720
@@ -15,11 +16,13 @@ class Renderer:
 
     DARK_SQUARE: tuple[int, int, int] = (115, 149, 82)
     LIGHT_SQUARE: tuple[int, int, int] = (235, 236, 208)
+    MOVE_HINT_COLOR: tuple[int, int, int, int] = (95, 95, 75, 90)
     PROMOTION_PANEL_RADIUS: int = 2
     
     def __init__(self, game: 'Game') -> None:
         self.game = game
         self._drag: Optional[DragState] = None
+        self._move_hints: list[Move] = []
 
         pygame.init()
         pygame.mixer.init()
@@ -77,6 +80,10 @@ class Renderer:
 
         if self.game.can_select((row, col)):
             self._drag = DragState(piece, x, y)
+            self._move_hints = [
+                move for move in self.game.legal_moves()
+                if move.from_sq == (row, col)
+            ]
 
     def _on_mouse_up(self, x: int, y: int) -> None:
         origin_row, origin_col = self._pixel_to_cell(self._drag.origin_x, self._drag.origin_y)
@@ -95,6 +102,7 @@ class Renderer:
             self._play_move_sound(result)
 
         self._drag = None
+        self._move_hints = []
 
     def _play_move_sound(self, result: 'MoveResult') -> None:
         if result.is_checkmate:
@@ -127,6 +135,7 @@ class Renderer:
     def _render(self) -> None:
         self.screen.fill((0, 0, 0))
         self._draw_board()
+        self._draw_move_hints()
         self._draw_pieces()
         self._draw_drag()
         self._draw_promotion_picker()
@@ -138,6 +147,70 @@ class Renderer:
                 rect = (col * Renderer.SQUARE_SIZE, row * Renderer.SQUARE_SIZE, 
                         Renderer.SQUARE_SIZE, Renderer.SQUARE_SIZE)
                 pygame.draw.rect(self.screen, color, rect)
+
+    def _draw_move_hints(self) -> None:
+        if not self._move_hints:
+            return
+
+        hint_surface = pygame.Surface(
+            (Renderer.SCREEN_WIDTH, Renderer.SCREEN_HEIGHT),
+            pygame.SRCALPHA
+        )
+
+        for move in self._move_hints:
+            row, col = move.to_sq
+            center = (
+                col * Renderer.SQUARE_SIZE + Renderer.SQUARE_SIZE // 2,
+                row * Renderer.SQUARE_SIZE + Renderer.SQUARE_SIZE // 2
+            )
+
+            if move.captured:
+                radius = Renderer.SQUARE_SIZE // 2
+                width = 8
+            else:
+                radius = Renderer.SQUARE_SIZE // 6
+                width = 0
+
+            self._draw_antialiased_circle(
+                hint_surface,
+                Renderer.MOVE_HINT_COLOR,
+                center,
+                radius,
+                width
+            )
+
+        self.screen.blit(hint_surface, (0, 0))
+
+    def _draw_antialiased_circle(
+            self,
+            surface: pygame.Surface,
+            color: tuple[int, int, int, int],
+            center: tuple[int, int],
+            radius: int,
+            width: int=0
+    ) -> None:
+        scale = 4
+        scaled_radius = radius * scale
+        scaled_width = width * scale
+        padding = max(scaled_width, scale * 2)
+        scaled_size = scaled_radius * 2 + padding * 2
+        circle_surface = pygame.Surface((scaled_size, scaled_size), pygame.SRCALPHA)
+
+        pygame.draw.circle(
+            circle_surface,
+            color,
+            (scaled_size // 2, scaled_size // 2),
+            scaled_radius,
+            scaled_width
+        )
+
+        final_size = scaled_size // scale
+        circle_surface = pygame.transform.smoothscale(
+            circle_surface,
+            (final_size, final_size)
+        )
+        rect = circle_surface.get_rect(center=center)
+        surface.blit(circle_surface, rect)
 
     def _draw_pieces(self) -> None:
         for (row, col), piece in self.game.pieces():
@@ -166,7 +239,7 @@ class Renderer:
 
         for color in ('white', 'black'):
             for piece_type in piece_types:
-                image = pygame.image.load(f'assets/pieces/{color}_{piece_type}.png')
+                image = pygame.image.load(f'assets/pieces/{color}_{piece_type}.png').convert_alpha()
                 images[(color, piece_type)] = pygame.transform.smoothscale(
                     image,
                     (Renderer.SQUARE_SIZE, Renderer.SQUARE_SIZE)
