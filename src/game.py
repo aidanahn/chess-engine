@@ -148,6 +148,46 @@ class Game:
             return self.alpha_beta(depth)
         return self.minimax(depth)
 
+    def make_engine_move(self, move: Move | None) -> MoveResult:
+        if move is None or self.is_game_over or self.pending_promotion:
+            return MoveResult()
+
+        legal_move = self._matching_legal_move(move)
+        if legal_move is None:
+            return MoveResult()
+
+        piece = self.piece_at(legal_move.from_sq)
+        if piece is None or piece.color != self.current_turn:
+            return MoveResult()
+
+        captured = legal_move.captured is not None
+        piece_color = piece.color
+        piece_had_moved = piece.has_moved
+        rook_had_moved = self._castling_rook_had_moved(legal_move)
+        previous_en_passant_sq = self.board.en_passant_sq
+        previous_halfmove_clock = self.halfmove_clock
+        previous_fullmove_number = self.fullmove_number
+        previous_current_turn = self.current_turn
+        previous_is_game_over = self.is_game_over
+        previous_draw_reason = self.draw_reason
+
+        self.board.make_move(legal_move)
+
+        return self._finish_turn(
+            legal_move,
+            piece_color,
+            captured,
+            piece_had_moved=piece_had_moved,
+            rook_had_moved=rook_had_moved,
+            previous_en_passant_sq=previous_en_passant_sq,
+            previous_halfmove_clock=previous_halfmove_clock,
+            previous_fullmove_number=previous_fullmove_number,
+            previous_current_turn=previous_current_turn,
+            previous_is_game_over=previous_is_game_over,
+            previous_draw_reason=previous_draw_reason,
+            promotion=legal_move.promotion
+        )
+
     def try_move(self, from_sq: Square, to_sq: Square) -> MoveResult:
         if self.is_game_over or self.pending_promotion:
             return MoveResult()
@@ -371,6 +411,13 @@ class Game:
 
     def _opponent(self, color: Color) -> Color:
         return 'white' if color == 'black' else 'black'
+
+    def _matching_legal_move(self, move: Move) -> Move | None:
+        from_row, from_col = move.from_sq
+        for legal_move in self.board.get_legal_moves(from_row, from_col):
+            if legal_move.to_sq == move.to_sq and legal_move.promotion == move.promotion:
+                return legal_move
+        return None
 
     def _draw_reason(self, is_checkmate: bool, is_stalemate: bool) -> str | None:
         if is_checkmate or is_stalemate:

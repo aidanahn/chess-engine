@@ -18,11 +18,15 @@ class Renderer:
     LIGHT_SQUARE: tuple[int, int, int] = (235, 236, 208)
     MOVE_HINT_COLOR: tuple[int, int, int, int] = (95, 95, 75, 90)
     PROMOTION_PANEL_RADIUS: int = 2
+    ENGINE_ENABLED: bool = True
+    ENGINE_COLOR: str = 'black'
+    ENGINE_DEPTH: int = 4
     
     def __init__(self, game: 'Game') -> None:
         self.game = game
         self._drag: Optional[DragState] = None
         self._move_hints: list[Move] = []
+        self._engine_move_pending = False
 
         pygame.init()
         pygame.mixer.init()
@@ -51,6 +55,12 @@ class Renderer:
             self._render()
             pygame.display.flip()
             self.clock.tick(Renderer.FRAMES_PER_SECOND)
+
+            if self._engine_move_pending:
+                self._engine_move_pending = False
+                self._make_engine_move()
+                self._render()
+                pygame.display.flip()
 
         pygame.quit()
 
@@ -99,7 +109,7 @@ class Renderer:
         )
 
         if result.ok and not result.needs_promotion:
-            self._play_move_sound(result)
+            self._handle_completed_move(result)
 
         self._drag = None
         self._move_hints = []
@@ -294,7 +304,7 @@ class Renderer:
             else:
                 result = self.game.promote(piece_type)
                 if result.ok:
-                    self._play_move_sound(result)
+                    self._handle_completed_move(result)
                 return
 
     def _draw_promotion_picker(self) -> None:
@@ -351,3 +361,22 @@ class Renderer:
             self._cursor = cursor
         except pygame.error:
             pass
+
+    def _handle_completed_move(self, result: 'MoveResult') -> None:
+        self._play_move_sound(result)
+        if self._should_engine_move():
+            self._engine_move_pending = True
+
+    def _should_engine_move(self) -> bool:
+        return not (
+            not Renderer.ENGINE_ENABLED
+            or self.game.current_turn != Renderer.ENGINE_COLOR
+            or self.game.is_game_over
+            or self.game.pending_promotion
+        )
+
+    def _make_engine_move(self) -> None:
+        search_result = self.game.best_move(Renderer.ENGINE_DEPTH)
+        result = self.game.make_engine_move(search_result.move)
+        if result.ok:
+            self._play_move_sound(result)
