@@ -7,7 +7,9 @@ from pieces import Pawn
 
 from .board import Board
 from .evaluation import evaluate_board
+from .fen import game_to_fen, load_fen
 from .move import Move
+from .perft import perft as run_perft, perft_divide as run_perft_divide
 
 if TYPE_CHECKING:
     from pieces import Piece
@@ -25,6 +27,7 @@ class PendingPromotion:
     piece_had_moved: bool
     previous_en_passant_sq: Square | None
     previous_halfmove_clock: int
+    previous_fullmove_number: int
     previous_draw_reason: str | None
 
 @dataclass
@@ -53,6 +56,7 @@ class MoveHistoryEntry:
     rook_had_moved: bool | None
     previous_en_passant_sq: Square | None
     previous_halfmove_clock: int
+    previous_fullmove_number: int
     previous_draw_reason: str | None
     previous_current_turn: Color
     previous_is_game_over: bool
@@ -73,6 +77,7 @@ class Game:
         self.is_game_over = False
         self.draw_reason: str | None = None
         self.halfmove_clock = 0
+        self.fullmove_number = 1
         self.pending_promotion: PendingPromotion | None = None
         self.move_history: list[MoveHistoryEntry] = []
         self._position_counts: dict[tuple, int] = {self._position_key(): 1}
@@ -117,6 +122,18 @@ class Game:
     def evaluate(self, perspective: Color='white') -> int:
         return evaluate_board(self.board, perspective)
 
+    def to_fen(self) -> str:
+        return game_to_fen(self)
+
+    def load_fen(self, fen: str) -> None:
+        load_fen(self, fen)
+
+    def perft(self, depth: int, color: Color | None=None) -> int:
+        return run_perft(self.board, depth, color or self.current_turn)
+
+    def perft_divide(self, depth: int, color: Color | None=None) -> list[tuple[str, int]]:
+        return run_perft_divide(self.board, depth, color or self.current_turn)
+
     def try_move(self, from_sq: Square, to_sq: Square) -> MoveResult:
         if self.is_game_over or self.pending_promotion:
             return MoveResult()
@@ -148,6 +165,7 @@ class Game:
         rook_had_moved = self._castling_rook_had_moved(move)
         previous_en_passant_sq = self.board.en_passant_sq
         previous_halfmove_clock = self.halfmove_clock
+        previous_fullmove_number = self.fullmove_number
         previous_current_turn = self.current_turn
         previous_is_game_over = self.is_game_over
         previous_draw_reason = self.draw_reason
@@ -162,6 +180,7 @@ class Game:
                 piece_had_moved=piece_had_moved,
                 previous_en_passant_sq=previous_en_passant_sq,
                 previous_halfmove_clock=previous_halfmove_clock,
+                previous_fullmove_number=previous_fullmove_number,
                 previous_draw_reason=previous_draw_reason
             )
             return MoveResult(
@@ -179,6 +198,7 @@ class Game:
             rook_had_moved=rook_had_moved,
             previous_en_passant_sq=previous_en_passant_sq,
             previous_halfmove_clock=previous_halfmove_clock,
+            previous_fullmove_number=previous_fullmove_number,
             previous_current_turn=previous_current_turn,
             previous_is_game_over=previous_is_game_over,
             previous_draw_reason=previous_draw_reason
@@ -193,6 +213,7 @@ class Game:
         self.board.unmake_move(pending.move)
         self.board.en_passant_sq = pending.previous_en_passant_sq
         self.halfmove_clock = pending.previous_halfmove_clock
+        self.fullmove_number = pending.previous_fullmove_number
         self.draw_reason = pending.previous_draw_reason
 
         piece = self.board.piece_at(pending.move.from_sq)
@@ -215,6 +236,7 @@ class Game:
             piece_had_moved=pending.piece_had_moved,
             previous_en_passant_sq=pending.previous_en_passant_sq,
             previous_halfmove_clock=pending.previous_halfmove_clock,
+            previous_fullmove_number=pending.previous_fullmove_number,
             previous_current_turn=pending.piece_color,
             previous_is_game_over=False,
             previous_draw_reason=pending.previous_draw_reason,
@@ -234,6 +256,7 @@ class Game:
         self.current_turn = entry.previous_current_turn
         self.is_game_over = entry.previous_is_game_over
         self.halfmove_clock = entry.previous_halfmove_clock
+        self.fullmove_number = entry.previous_fullmove_number
         self.draw_reason = entry.previous_draw_reason
 
         if entry.promotion:
@@ -263,6 +286,7 @@ class Game:
         piece_had_moved: bool,
         previous_en_passant_sq: Square | None,
         previous_halfmove_clock: int,
+        previous_fullmove_number: int,
         previous_current_turn: Color,
         previous_is_game_over: bool,
         previous_draw_reason: str | None,
@@ -277,6 +301,7 @@ class Game:
         captured_piece_type = move.captured.piece_type if move.captured is not None else None
         opponent = self._opponent(piece_color)
         self.current_turn = opponent
+        self.fullmove_number = previous_fullmove_number + (1 if piece_color == 'black' else 0)
         self.halfmove_clock = (
             0
             if piece_type == 'pawn' or captured
@@ -303,6 +328,7 @@ class Game:
                 rook_had_moved=rook_had_moved,
                 previous_en_passant_sq=previous_en_passant_sq,
                 previous_halfmove_clock=previous_halfmove_clock,
+                previous_fullmove_number=previous_fullmove_number,
                 previous_draw_reason=previous_draw_reason,
                 previous_current_turn=previous_current_turn,
                 previous_is_game_over=previous_is_game_over,
