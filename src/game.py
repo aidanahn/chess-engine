@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Iterator
 from pieces import Pawn
 
 from .board import Board
+from .engine import SearchResult, alpha_beta as run_alpha_beta, minimax as run_minimax
 from .evaluation import evaluate_board
 from .fen import game_to_fen, load_fen
 from .move import Move
@@ -133,6 +134,19 @@ class Game:
 
     def perft_divide(self, depth: int, color: Color | None=None) -> list[tuple[str, int]]:
         return run_perft_divide(self.board, depth, color or self.current_turn)
+
+    def minimax(self, depth: int, color: Color | None=None) -> SearchResult:
+        search_color = color or self.current_turn
+        return run_minimax(self.board, depth, search_color)
+
+    def alpha_beta(self, depth: int, color: Color | None=None) -> SearchResult:
+        search_color = color or self.current_turn
+        return run_alpha_beta(self.board, depth, search_color)
+
+    def best_move(self, depth: int, use_alpha_beta: bool=True) -> SearchResult:
+        if use_alpha_beta:
+            return self.alpha_beta(depth)
+        return self.minimax(depth)
 
     def try_move(self, from_sq: Square, to_sq: Square) -> MoveResult:
         if self.is_game_over or self.pending_promotion:
