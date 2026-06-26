@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Iterator
 from pieces import Pawn
 
 from .board import Board
+from .evaluation import evaluate_board
 from .move import Move
 
 if TYPE_CHECKING:
@@ -112,6 +113,9 @@ class Game:
 
     def legal_moves(self, color: Color | None=None) -> list[Move]:
         return self.board.get_all_legal_moves(color or self.current_turn)
+
+    def evaluate(self, perspective: Color='white') -> int:
+        return evaluate_board(self.board, perspective)
 
     def try_move(self, from_sq: Square, to_sq: Square) -> MoveResult:
         if self.is_game_over or self.pending_promotion:
