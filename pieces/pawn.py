@@ -4,6 +4,8 @@ from src.move import Move
 
 from .piece import Color, Piece
 
+PROMOTION_CHOICES = ('queen', 'knight', 'rook', 'bishop')
+
 class Pawn(Piece):
     def __init__(self, color: Color) -> None:
         super().__init__(color, 'pawn')
@@ -14,7 +16,7 @@ class Pawn(Piece):
 
         r1, c1 = row + direction, col
         if self._is_in_bounds(r1, c1) and board[r1][c1] is None:
-            moves.append(Move((row, col), (r1, c1)))
+            self._add_pawn_move(moves, (row, col), (r1, c1))
 
             r2, c2 = row + direction * 2, col
             if not self.has_moved and self._is_in_bounds(r2, c2) and board[r2][c2] is None:
@@ -25,12 +27,30 @@ class Pawn(Piece):
             if self._is_in_bounds(tr, tc):
                 target = board[tr][tc]
                 if target is not None and target.color != self.color:
-                    moves.append(Move((row, col), (tr, tc), captured=target))
+                    self._add_pawn_move(moves, (row, col), (tr, tc), captured=target)
                 elif en_passant_sq == (tr, tc):
                     captured_pawn = board[row][tc]
                     moves.append(Move((row, col), (tr, tc), captured=captured_pawn, is_en_passant=True))
 
         return moves
+
+    def _add_pawn_move(
+        self,
+        moves: list[Move],
+        from_sq: tuple[int, int],
+        to_sq: tuple[int, int],
+        captured: Optional['Piece']=None
+    ) -> None:
+        to_row, _ = to_sq
+        promotion_rank = 7 if self.color == 'black' else 0
+
+        if to_row == promotion_rank:
+            moves.extend(
+                Move(from_sq, to_sq, captured=captured, promotion=choice)
+                for choice in PROMOTION_CHOICES
+            )
+        else:
+            moves.append(Move(from_sq, to_sq, captured=captured))
     
     def get_attacks(self, row: int, col: int, board: list[list[Optional['Piece']]]) -> list[Move]:
         direction = 1 if self.color == 'black' else -1

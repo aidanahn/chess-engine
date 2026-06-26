@@ -6,9 +6,9 @@ from typing import TYPE_CHECKING, Iterator
 from pieces import Pawn
 
 from .board import Board
+from .move import Move
 
 if TYPE_CHECKING:
-    from .move import Move
     from pieces import Piece
     from pieces.piece import Color
 
@@ -121,9 +121,22 @@ class Game:
         if piece is None or piece.color != self.current_turn:
             return MoveResult()
 
-        move = self.board.find_legal_move(from_sq, to_sq)
-        if move is None:
+        matching_moves = [
+            move for move in self.board.get_legal_moves(*from_sq)
+            if move.to_sq == to_sq
+        ]
+        if not matching_moves:
             return MoveResult()
+
+        move = matching_moves[0]
+        promotion_move = next((move for move in matching_moves if move.promotion is not None), None)
+        if promotion_move is not None:
+            move = Move(
+                from_sq=promotion_move.from_sq,
+                to_sq=promotion_move.to_sq,
+                captured=promotion_move.captured,
+                is_en_passant=promotion_move.is_en_passant
+            )
 
         captured = move.captured is not None
         piece_color = piece.color
@@ -188,6 +201,7 @@ class Game:
 
         pending = self.pending_promotion
         self.pending_promotion = None
+        pending.move.promotion = piece_type
         self.board.promote_pawn(pending.square, piece_type)
 
         return self._finish_turn(

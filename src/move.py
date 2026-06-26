@@ -13,3 +13,4 @@ class Move:
     captured: Piece | None = None
     is_castling: bool = False
     is_en_passant: bool = False
+    promotion: str | None = None
