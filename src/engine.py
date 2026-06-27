@@ -11,12 +11,23 @@ from .move import Move
 
 MATE_SCORE = 100_000
 DEFAULT_QUIESCENCE_DEPTH = 4
+EXACT = 'exact'
+LOWER_BOUND = 'lower'
+UPPER_BOUND = 'upper'
 
 @dataclass
 class SearchResult:
     move: Move | None
     score: int
     nodes: int
+    transposition_hits: int = 0
+
+@dataclass
+class TranspositionEntry:
+    depth: int
+    score: int
+    flag: str
+    best_move: Move | None
 
 def minimax(board: Board, depth: int, color: Color, perspective: Color | None=None) -> SearchResult:
     _validate_depth(depth)
@@ -38,6 +49,8 @@ def alpha_beta(
     _validate_depth(quiescence_depth)
     perspective = perspective or color
     nodes = [0]
+    transposition_hits = [0]
+    transposition_table: dict[tuple, TranspositionEntry] = {}
     move, score = _search_alpha_beta(
         board,
         depth,
@@ -47,9 +60,16 @@ def alpha_beta(
         beta,
         nodes,
         ply=0,
-        quiescence_depth=quiescence_depth
+        quiescence_depth=quiescence_depth,
+        transposition_table=transposition_table,
+        transposition_hits=transposition_hits
     )
-    return SearchResult(move=move, score=score, nodes=nodes[0])
+    return SearchResult(
+        move=move,
+        score=score,
+        nodes=nodes[0],
+        transposition_hits=transposition_hits[0]
+    )
 
 def _search_minimax(
     board: Board,
@@ -92,9 +112,29 @@ def _search_alpha_beta(
     beta: int,
     nodes: list[int],
     ply: int,
-    quiescence_depth: int
+    quiescence_depth: int,
+    transposition_table: dict[tuple, TranspositionEntry],
+    transposition_hits: list[int]
 ) -> tuple[Move | None, int]:
     nodes[0] += 1
+    original_alpha = alpha
+    original_beta = beta
+    key = _position_key(board, color, perspective)
+    entry = transposition_table.get(key)
+
+    if entry is not None and entry.depth >= depth:
+        if entry.flag == EXACT:
+            transposition_hits[0] += 1
+            return entry.best_move, entry.score
+        if entry.flag == LOWER_BOUND:
+            alpha = max(alpha, entry.score)
+        elif entry.flag == UPPER_BOUND:
+            beta = min(beta, entry.score)
+
+        if alpha >= beta:
+            transposition_hits[0] += 1
+            return entry.best_move, entry.score
+
     moves = board.get_all_legal_moves(color)
 
     if not moves:
@@ -109,7 +149,7 @@ def _search_alpha_beta(
     if maximizing:
         best_score = -inf
 
-        for move in _ordered_moves(moves):
+        for move in _ordered_moves(moves, entry.best_move if entry is not None else None):
             state = board.apply_move(move)
             _, score = _search_alpha_beta(
                 board,
@@ -120,7 +160,9 @@ def _search_alpha_beta(
                 beta,
                 nodes,
                 ply + 1,
-                quiescence_depth
+                quiescence_depth,
+                transposition_table,
+                transposition_hits
             )
             board.undo_move(state)
 
@@ -133,7 +175,7 @@ def _search_alpha_beta(
     else:
         best_score = inf
 
-        for move in _ordered_moves(moves):
+        for move in _ordered_moves(moves, entry.best_move if entry is not None else None):
             state = board.apply_move(move)
             _, score = _search_alpha_beta(
                 board,
@@ -144,7 +186,9 @@ def _search_alpha_beta(
                 beta,
                 nodes,
                 ply + 1,
-                quiescence_depth
+                quiescence_depth,
+                transposition_table,
+                transposition_hits
             )
             board.undo_move(state)
 
@@ -155,7 +199,14 @@ def _search_alpha_beta(
             if alpha >= beta:
                 break
 
-    return best_move, int(best_score)
+    best_score = int(best_score)
+    transposition_table[key] = TranspositionEntry(
+        depth=depth,
+        score=best_score,
+        flag=_transposition_flag(best_score, original_alpha, original_beta),
+        best_move=best_move
+    )
+    return best_move, best_score
 
 def _score_position(board: Board, color: Color, perspective: Color, moves: list[Move], ply: int) -> int:
     if moves:
@@ -251,11 +302,14 @@ def _quiescence(
 
     return best_score
 
-def _ordered_moves(moves: list[Move]) -> list[Move]:
-    return sorted(moves, key=_move_order_score, reverse=True)
+def _ordered_moves(moves: list[Move], table_move: Move | None=None) -> list[Move]:
+    return sorted(moves, key=lambda move: _move_order_score(move, table_move), reverse=True)
 
-def _move_order_score(move: Move) -> int:
+def _move_order_score(move: Move, table_move: Move | None=None) -> int:
     score = 0
+
+    if table_move is not None and _same_move(move, table_move):
+        score += 100_000
 
     if move.captured is not None:
         score += 10_000 + PIECE_VALUES[move.captured.piece_type]
@@ -267,6 +321,40 @@ def _move_order_score(move: Move) -> int:
         score += 50
 
     return score
+
+def _transposition_flag(score: int, alpha: int, beta: int) -> str:
+    if score <= alpha:
+        return UPPER_BOUND
+    if score >= beta:
+        return LOWER_BOUND
+    return EXACT
+
+def _position_key(board: Board, color: Color, perspective: Color) -> tuple:
+    pieces = tuple(
+        sorted(
+            (
+                row,
+                col,
+                piece.color,
+                piece.piece_type,
+                piece.has_moved
+            )
+            for (row, col), piece in board.pieces()
+        )
+    )
+    return (
+        color,
+        perspective,
+        pieces,
+        board.en_passant_sq
+    )
+
+def _same_move(first: Move, second: Move) -> bool:
+    return (
+        first.from_sq == second.from_sq
+        and first.to_sq == second.to_sq
+        and first.promotion == second.promotion
+    )
 
 def _opponent(color: Color) -> Color:
     return 'white' if color == 'black' else 'black'
