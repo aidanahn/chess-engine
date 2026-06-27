@@ -139,13 +139,23 @@ class Game:
         search_color = color or self.current_turn
         return run_minimax(self.board, depth, search_color)
 
-    def alpha_beta(self, depth: int, color: Color | None=None) -> SearchResult:
+    def alpha_beta(
+        self,
+        depth: int,
+        color: Color | None=None,
+        quiescence_depth: int=4
+    ) -> SearchResult:
         search_color = color or self.current_turn
-        return run_alpha_beta(self.board, depth, search_color)
+        return run_alpha_beta(self.board, depth, search_color, quiescence_depth=quiescence_depth)
 
-    def best_move(self, depth: int, use_alpha_beta: bool=True) -> SearchResult:
+    def best_move(
+        self,
+        depth: int,
+        use_alpha_beta: bool=True,
+        quiescence_depth: int=4
+    ) -> SearchResult:
         if use_alpha_beta:
-            return self.alpha_beta(depth)
+            return self.alpha_beta(depth, quiescence_depth=quiescence_depth)
         return self.minimax(depth)
 
     def make_engine_move(self, move: Move | None) -> MoveResult:
